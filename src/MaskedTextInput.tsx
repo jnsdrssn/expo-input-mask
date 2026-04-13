@@ -75,7 +75,7 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
         const result = runMask(value, value.length, 'forward');
         setFormattedText(result.formattedText);
         previousTextRef.current = result.formattedText;
-        lastExtractedRef.current = result.extractedValue;
+        lastExtractedRef.current = value;
         setSelection({
           start: result.caretPosition,
           end: result.caretPosition,
