@@ -24,9 +24,12 @@ public class ExpoInputMaskModule: Module {
     Name("ExpoInputMask")
 
     Function("applyMask") { (options: ApplyMaskOptions) -> [String: Any] in
-      let notations = (options.customNotations ?? []).map { record in
-        Notation(
-          character: Character(record.character),
+      let notations = try (options.customNotations ?? []).map { record -> Notation in
+        guard let char = record.character.first else {
+          throw Exception(name: "ERR_INVALID_NOTATION", description: "customNotation.character must be a single character")
+        }
+        return Notation(
+          character: char,
           characterSet: CharacterSet(charactersIn: record.characterSet),
           isOptional: record.isOptional
         )
@@ -41,7 +44,7 @@ public class ExpoInputMaskModule: Module {
         ? .backward(autoskip: options.autoskip)
         : .forward(autocomplete: options.autocomplete)
 
-      let clampedPos = min(options.caretPosition, options.text.count)
+      let clampedPos = max(0, min(options.caretPosition, options.text.count))
       let caretIndex = options.text.index(
         options.text.startIndex,
         offsetBy: clampedPos

@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.dependency 'InputMask'
+  s.dependency 'InputMask', '~> 7.0'
 
-  s.source_files = '**/*.swift'
+  s.source_files = '*.swift'
 end
