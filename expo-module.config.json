@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["ExpoInputMaskModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.inputmask.ExpoInputMaskModule"]
+  }
+}
