@@ -8,8 +8,8 @@ Pod::Spec.new do |s|
   s.summary        = package['description']
   s.description    = package['description']
   s.license        = package['license']
-  s.author         = 'expo-input-mask contributors'
-  s.homepage       = 'https://github.com/example/expo-input-mask'
+  s.author         = package['author']
+  s.homepage       = package['homepage']
   s.platforms      = { :ios => '15.6' }
   s.swift_version  = '5.4'
   s.source         = { git: '' }

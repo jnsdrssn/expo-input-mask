@@ -1,0 +1,9 @@
+example/
+docs/
+.eslintrc.js
+tsconfig.json
+*.tsbuildinfo
+.expo/
+.git/
+android/build/
+android/.gradle/

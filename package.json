@@ -1,10 +1,34 @@
 {
   "name": "expo-input-mask",
   "version": "0.1.0",
-  "description": "Expo native module wrapping RedMadRobot input-mask for iOS and Android",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "description": "Native input masking for Expo — wraps RedMadRobot's input-mask libraries for iOS and Android",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
   "license": "MIT",
+  "homepage": "https://github.com/jonasderissen/expo-input-mask#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jonasderissen/expo-input-mask.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jonasderissen/expo-input-mask/issues"
+  },
+  "author": "Jonas Derissen",
+  "keywords": [
+    "react-native",
+    "expo",
+    "input-mask",
+    "text-input",
+    "mask",
+    "formatting",
+    "phone-number",
+    "credit-card",
+    "date-mask",
+    "redmadrobot",
+    "ios",
+    "android",
+    "native-module"
+  ],
   "scripts": {
     "build": "expo-module build",
     "clean": "expo-module clean",
