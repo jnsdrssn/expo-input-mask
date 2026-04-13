@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "expo-input-mask-example",
+    "slug": "expo-input-mask-example",
+    "version": "1.0.0",
+    "ios": {
+      "bundleIdentifier": "com.example.expoinputmask"
+    },
+    "android": {
+      "package": "com.example.expoinputmask"
+    },
+    "plugins": ["expo-input-mask"]
+  }
+}
