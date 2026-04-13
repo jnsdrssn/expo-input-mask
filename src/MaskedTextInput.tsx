@@ -31,9 +31,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
     ref
   ) => {
     const [formattedText, setFormattedText] = useState('');
-    const [selection, setSelection] = useState<
-      { start: number; end: number } | undefined
-    >();
     const selectionRef = useRef({ start: 0, end: 0 });
     const previousTextRef = useRef('');
     const lastExtractedRef = useRef('');
@@ -68,15 +65,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
       [mask, autocomplete, autoskip, affinityMasks, affinityStrategy, customNotations]
     );
 
-    // After setting selection, release control so the user can freely move the cursor.
-    // Without this, the controlled selection prop fights with native cursor positioning.
-    useEffect(() => {
-      if (selection !== undefined) {
-        const id = requestAnimationFrame(() => setSelection(undefined));
-        return () => cancelAnimationFrame(id);
-      }
-    }, [selection]);
-
     // Handle external value prop changes (value = extracted/unmasked value)
     useEffect(() => {
       if (value !== undefined && value !== lastExtractedRef.current) {
@@ -84,10 +72,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
         setFormattedText(result.formattedText);
         previousTextRef.current = result.formattedText;
         lastExtractedRef.current = value;
-        setSelection({
-          start: result.caretPosition,
-          end: result.caretPosition,
-        });
       }
     }, [value, runMask]);
 
@@ -107,12 +91,8 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
         previousTextRef.current = result.formattedText;
         lastExtractedRef.current = result.extractedValue;
 
-        // Briefly set selection to position cursor after mask formatting.
-        // The useEffect above clears it on the next frame so native regains control.
-        setSelection({
-          start: result.caretPosition,
-          end: result.caretPosition,
-        });
+        // Do NOT set selection — controlled selection is broken on Fabric/new arch.
+        // Native TextInput handles cursor position reasonably for sequential typing.
 
         onChangeText?.(result.extractedValue);
         onMaskResult?.({
@@ -126,8 +106,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
 
     const handleSelectionChange = useCallback(
       (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-        // Only track in ref — never update selection state from native events.
-        // This prevents the cursor from fighting between React and native.
         selectionRef.current = event.nativeEvent.selection;
         onSelectionChange?.(event);
       },
@@ -139,7 +117,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
         ref={setRefs}
         {...rest}
         value={formattedText}
-        selection={selection}
         onChangeText={handleChangeText}
         onSelectionChange={handleSelectionChange}
       />
