@@ -91,9 +91,6 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
         previousTextRef.current = result.formattedText;
         lastExtractedRef.current = result.extractedValue;
 
-        // Do NOT set selection — controlled selection is broken on Fabric/new arch.
-        // Native TextInput handles cursor position reasonably for sequential typing.
-
         onChangeText?.(result.extractedValue);
         onMaskResult?.({
           formattedText: result.formattedText,
