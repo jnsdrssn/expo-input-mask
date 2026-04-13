@@ -20,6 +20,7 @@
     "react-native": "*"
   },
   "devDependencies": {
+    "@types/react": "^19.2.14",
     "expo": "^52.0.0",
     "expo-module-scripts": "^4.0.0",
     "expo-modules-core": "^2.0.0",
