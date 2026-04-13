@@ -2,7 +2,7 @@
   "name": "expo-input-mask-example",
   "version": "1.0.0",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "expo/AppEntry",
   "scripts": {
     "start": "expo start",
     "ios": "expo run:ios",

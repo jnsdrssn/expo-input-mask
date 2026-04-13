@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license        = package['license']
   s.author         = 'expo-input-mask contributors'
   s.homepage       = 'https://github.com/example/expo-input-mask'
-  s.platforms      = { :ios => '13.4' }
+  s.platforms      = { :ios => '15.6' }
   s.swift_version  = '5.4'
   s.source         = { git: '' }
   s.static_framework = true
