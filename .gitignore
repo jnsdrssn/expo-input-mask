@@ -8,3 +8,4 @@ example/android/.gradle/
 example/android/build/
 example/android/app/build/
 .expo/
+**/*.keystore

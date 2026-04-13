@@ -40,7 +40,11 @@ class ExpoInputMaskModule : Module() {
         Notation(character = record.character[0], characterSet = record.characterSet, isOptional = record.isOptional)
       }
 
-      val primaryMask = Mask.getOrCreate(options.primaryFormat, notations)
+      val primaryMask = try {
+        Mask.getOrCreate(options.primaryFormat, notations)
+      } catch (e: Exception) {
+        throw CodedException("ERR_INVALID_MASK", "Invalid mask format '${options.primaryFormat}': ${e.message}", e)
+      }
 
       val gravity: CaretString.CaretGravity =
         if (options.caretGravity == "backward") {

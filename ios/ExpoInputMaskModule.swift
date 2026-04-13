@@ -35,10 +35,15 @@ public class ExpoInputMaskModule: Module {
         )
       }
 
-      let primaryMask = try Mask.getOrCreate(
-        withFormat: options.primaryFormat,
-        customNotations: notations
-      )
+      let primaryMask: Mask
+      do {
+        primaryMask = try Mask.getOrCreate(
+          withFormat: options.primaryFormat,
+          customNotations: notations
+        )
+      } catch {
+        throw Exception(name: "ERR_INVALID_MASK", description: "Invalid mask format '\(options.primaryFormat)': \(error.localizedDescription)")
+      }
 
       let gravity: CaretString.CaretGravity = options.caretGravity == "backward"
         ? .backward(autoskip: options.autoskip)
