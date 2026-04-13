@@ -1,5 +1,6 @@
 package expo.modules.inputmask
 
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
@@ -33,9 +34,10 @@ class ExpoInputMaskModule : Module() {
 
     Function("applyMask") { options: ApplyMaskOptions ->
       val notations = (options.customNotations ?: emptyList()).map { record ->
-        require(record.character.isNotEmpty()) { "customNotation.character must be a single character" }
-        val char = record.character[0]
-        Notation(character = char, characterSet = record.characterSet, isOptional = record.isOptional)
+        if (record.character.isEmpty()) {
+          throw CodedException("ERR_INVALID_NOTATION", "customNotation.character must be a single character", null)
+        }
+        Notation(character = record.character[0], characterSet = record.characterSet, isOptional = record.isOptional)
       }
 
       val primaryMask = Mask.getOrCreate(options.primaryFormat, notations)
@@ -50,7 +52,8 @@ class ExpoInputMaskModule : Module() {
       val caretPos = options.caretPosition.coerceIn(0, options.text.length)
       val caretString = CaretString(options.text, caretPos, gravity)
 
-      if (options.affinityFormats != null && options.affinityFormats!!.isNotEmpty()) {
+      val affinityFormats = options.affinityFormats
+      if (!affinityFormats.isNullOrEmpty()) {
         val strategy = parseStrategy(options.affinityStrategy)
         val primaryResult = primaryMask.apply(caretString)
         val primaryAffinity = strategy.calculateAffinityOfMask(primaryMask, caretString)
@@ -58,8 +61,12 @@ class ExpoInputMaskModule : Module() {
         var bestResult = primaryResult
         var bestAffinity = primaryAffinity
 
-        for (format in options.affinityFormats!!) {
-          val mask = Mask.getOrCreate(format, notations)
+        for (format in affinityFormats) {
+          val mask = try {
+            Mask.getOrCreate(format, notations)
+          } catch (e: Exception) {
+            continue
+          }
           val result = mask.apply(caretString)
           val affinity = strategy.calculateAffinityOfMask(mask, caretString)
           if (affinity > bestAffinity) {
