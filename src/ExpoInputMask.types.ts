@@ -47,3 +47,38 @@ export interface MaskedTextInputProps extends TextInputProps {
     complete: boolean;
   }) => void;
 }
+
+export interface ApplyNumberFormatOptions {
+  text: string;
+  caretPosition: number;
+  caretGravity?: 'forward' | 'backward';
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  min?: number;
+  max?: number;
+}
+
+export interface NumberFormatResult {
+  formattedText: string;
+  value: string;
+  complete: boolean;
+  caretPosition: number;
+}
+
+export interface NumberInputProps extends TextInputProps {
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  min?: number;
+  max?: number;
+  onNumberResult?: (result: {
+    formattedText: string;
+    value: number | null;
+    complete: boolean;
+  }) => void;
+}
