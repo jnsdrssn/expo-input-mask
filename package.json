@@ -5,13 +5,13 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "license": "MIT",
-  "homepage": "https://github.com/jonasderissen/expo-input-mask#readme",
+  "homepage": "https://github.com/jnsdrssn/expo-input-mask#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jonasderissen/expo-input-mask.git"
+    "url": "git+https://github.com/jnsdrssn/expo-input-mask.git"
   },
   "bugs": {
-    "url": "https://github.com/jonasderissen/expo-input-mask/issues"
+    "url": "https://github.com/jnsdrssn/expo-input-mask/issues"
   },
   "author": "Jonas Derissen",
   "keywords": [
