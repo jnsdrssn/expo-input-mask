@@ -36,6 +36,7 @@
     "test": "expo-module test",
     "prepare": "expo-module prepare",
     "prepublishOnly": "expo-module prepublishOnly",
+    "postpublish": "git tag v$npm_package_version && git push origin v$npm_package_version",
     "expo-module": "expo-module"
   },
   "peerDependencies": {
