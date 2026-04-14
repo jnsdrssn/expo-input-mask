@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { MaskedTextInput } from 'expo-input-mask';
+import { MaskedTextInput, NumberInput } from 'expo-input-mask';
 
 function DemoInput({
   label,
@@ -50,6 +50,64 @@ function DemoInput({
   );
 }
 
+function NumberDemoInput({
+  label,
+  locale,
+  currency,
+  groupingSeparator,
+  decimalSeparator,
+  decimalPlaces,
+  min,
+  max,
+  placeholder,
+}: {
+  label: string;
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  min?: number;
+  max?: number;
+  placeholder: string;
+}) {
+  const [rawValue, setRawValue] = useState('');
+  const [complete, setComplete] = useState(false);
+  const [formatted, setFormatted] = useState('');
+  const [numericValue, setNumericValue] = useState<number | null>(null);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>{label}</Text>
+      {currency && <Text style={styles.maskLabel}>Currency: {currency}</Text>}
+      {locale && <Text style={styles.maskLabel}>Locale: {locale}</Text>}
+      <NumberInput
+        locale={locale}
+        currency={currency}
+        groupingSeparator={groupingSeparator}
+        decimalSeparator={decimalSeparator}
+        decimalPlaces={decimalPlaces}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        style={styles.input}
+        onChangeText={setRawValue}
+        onNumberResult={(result) => {
+          setComplete(result.complete);
+          setFormatted(result.formattedText);
+          setNumericValue(result.value);
+        }}
+      />
+      <Text style={styles.info}>Formatted: {formatted}</Text>
+      <Text style={styles.info}>Raw: {rawValue}</Text>
+      <Text style={styles.info}>Value: {numericValue !== null ? numericValue : 'null'}</Text>
+      <Text style={[styles.info, complete ? styles.complete : styles.incomplete]}>
+        {complete ? 'Complete' : 'Incomplete'}
+      </Text>
+    </View>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
@@ -90,6 +148,40 @@ export default function App() {
               isOptional: false,
             },
           ]}
+        />
+
+        <Text style={[styles.title, { marginTop: 20 }]}>NumberInput Demos</Text>
+
+        <NumberDemoInput
+          label="Plain Number"
+          placeholder="1,234,567"
+        />
+
+        <NumberDemoInput
+          label="USD Currency"
+          currency="USD"
+          locale="en-US"
+          placeholder="$0.00"
+        />
+
+        <NumberDemoInput
+          label="EUR Currency (German)"
+          currency="EUR"
+          locale="de-DE"
+          placeholder="0,00 €"
+        />
+
+        <NumberDemoInput
+          label="With Min/Max (0 - 10,000)"
+          min={0}
+          max={10000}
+          placeholder="0 - 10,000"
+        />
+
+        <NumberDemoInput
+          label="Custom: 4 decimal places"
+          decimalPlaces={4}
+          placeholder="0.0000"
         />
       </ScrollView>
     </SafeAreaView>
