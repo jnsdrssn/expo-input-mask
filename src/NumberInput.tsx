@@ -33,10 +33,21 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
     ref
   ) => {
     const [formattedText, setFormattedText] = useState('');
+    const [selection, setSelection] = useState<
+      { start: number; end: number } | undefined
+    >(undefined);
     const selectionRef = useRef({ start: 0, end: 0 });
     const previousTextRef = useRef('');
     const lastRawValueRef = useRef('');
     const innerRef = useRef<TextInput>(null);
+
+    // Clear selection after React Native applies it, so the user can
+    // freely move the cursor without us fighting them.
+    useEffect(() => {
+      if (selection === undefined) return;
+      const timer = setTimeout(() => setSelection(undefined), 0);
+      return () => clearTimeout(timer);
+    }, [selection]);
 
     const setRefs = useCallback(
       (instance: TextInput | null) => {
@@ -117,6 +128,10 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
         }
 
         setFormattedText(result.formattedText);
+        setSelection({
+          start: result.caretPosition,
+          end: result.caretPosition,
+        });
         previousTextRef.current = result.formattedText;
         lastRawValueRef.current = result.value;
 
@@ -144,6 +159,7 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
         {...rest}
         keyboardType={rest.keyboardType ?? 'decimal-pad'}
         value={formattedText}
+        selection={selection}
         onChangeText={handleChangeText}
         onSelectionChange={handleSelectionChange}
       />
