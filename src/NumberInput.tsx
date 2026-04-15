@@ -33,21 +33,11 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
     ref
   ) => {
     const [formattedText, setFormattedText] = useState('');
-    const [selection, setSelection] = useState<
-      { start: number; end: number } | undefined
-    >(undefined);
-    const selectionRef = useRef({ start: 0, end: 0 });
+    const [selection, setSelection] = useState({ start: 0, end: 0 });
+    const lastCaretRef = useRef(0);
     const previousTextRef = useRef('');
     const lastRawValueRef = useRef('');
     const innerRef = useRef<TextInput>(null);
-
-    // Clear selection after React Native applies it, so the user can
-    // freely move the cursor without us fighting them.
-    useEffect(() => {
-      if (selection === undefined) return;
-      const timer = setTimeout(() => setSelection(undefined), 0);
-      return () => clearTimeout(timer);
-    }, [selection]);
 
     const setRefs = useCallback(
       (instance: TextInput | null) => {
@@ -86,6 +76,11 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
         const result = runFormat(value, value.length, 'forward');
         if (!result.exceeded) {
           setFormattedText(result.formattedText);
+          setSelection({
+            start: result.caretPosition,
+            end: result.caretPosition,
+          });
+          lastCaretRef.current = result.caretPosition;
           previousTextRef.current = result.formattedText;
           lastRawValueRef.current = result.value;
         }
@@ -98,7 +93,7 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
           text.length < previousTextRef.current.length ? 'backward' : 'forward';
         const caretPos = Math.max(
           0,
-          selectionRef.current.start +
+          lastCaretRef.current +
             (text.length - previousTextRef.current.length)
         );
 
@@ -132,6 +127,7 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
           start: result.caretPosition,
           end: result.caretPosition,
         });
+        lastCaretRef.current = result.caretPosition;
         previousTextRef.current = result.formattedText;
         lastRawValueRef.current = result.value;
 
@@ -147,7 +143,9 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
 
     const handleSelectionChange = useCallback(
       (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
-        selectionRef.current = event.nativeEvent.selection;
+        const sel = event.nativeEvent.selection;
+        lastCaretRef.current = sel.start;
+        setSelection(sel);
         onSelectionChange?.(event);
       },
       [onSelectionChange]
