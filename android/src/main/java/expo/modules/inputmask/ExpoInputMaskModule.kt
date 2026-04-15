@@ -1,5 +1,7 @@
 package expo.modules.inputmask
 
+import android.text.InputType
+import android.view.Gravity
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -252,6 +254,91 @@ class ExpoInputMaskModule : Module() {
         "caretPosition" to newCaretPosition,
         "exceeded" to false
       )
+    }
+
+    View(NumberInputView::class) {
+      Events(
+        "onChangeText",
+        "onNumberResult",
+        "onFocusEvent",
+        "onBlurEvent"
+      )
+
+      Prop("placeholder") { view: NumberInputView, value: String? ->
+        view.editText.hint = value
+      }
+
+      Prop("editable") { view: NumberInputView, value: Boolean? ->
+        view.editText.isEnabled = value ?: true
+      }
+
+      Prop("textAlign") { view: NumberInputView, value: String? ->
+        view.editText.gravity = when (value) {
+          "center" -> Gravity.CENTER
+          "right" -> Gravity.END or Gravity.CENTER_VERTICAL
+          else -> Gravity.START or Gravity.CENTER_VERTICAL
+        }
+      }
+
+      Prop("keyboardType") { view: NumberInputView, value: String? ->
+        view.editText.inputType = when (value) {
+          "numeric", "number-pad" -> InputType.TYPE_CLASS_NUMBER
+          else -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        }
+      }
+
+      Prop("returnKeyType") { view: NumberInputView, value: String? ->
+        view.editText.imeOptions = when (value) {
+          "go" -> android.view.inputmethod.EditorInfo.IME_ACTION_GO
+          "next" -> android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+          "search" -> android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+          "send" -> android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+          "done" -> android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+          else -> android.view.inputmethod.EditorInfo.IME_ACTION_UNSPECIFIED
+        }
+      }
+
+      Prop("locale") { view: NumberInputView, value: String? ->
+        view.propLocale = value
+      }
+
+      Prop("currency") { view: NumberInputView, value: String? ->
+        view.propCurrency = value
+      }
+
+      Prop("groupingSeparator") { view: NumberInputView, value: String? ->
+        view.propGroupingSeparator = value
+      }
+
+      Prop("decimalSeparator") { view: NumberInputView, value: String? ->
+        view.propDecimalSeparator = value
+      }
+
+      Prop("decimalPlaces") { view: NumberInputView, value: Int? ->
+        view.propDecimalPlaces = value
+      }
+
+      Prop("fixedDecimalPlaces") { view: NumberInputView, value: Boolean? ->
+        view.propFixedDecimalPlaces = value
+      }
+
+      Prop("min") { view: NumberInputView, value: Double? ->
+        view.minValue = value
+      }
+
+      Prop("max") { view: NumberInputView, value: Double? ->
+        view.maxValue = value
+      }
+
+      Prop("value") { view: NumberInputView, value: String? ->
+        if (value != null) {
+          view.setExternalValue(value)
+        }
+      }
+
+      OnViewDidUpdateProps { view: NumberInputView ->
+        view.updateFormatter()
+      }
     }
   }
 
