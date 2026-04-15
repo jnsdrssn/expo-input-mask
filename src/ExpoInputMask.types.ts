@@ -69,18 +69,39 @@ export interface NumberFormatResult {
   caretPosition: number;
 }
 
-export interface NumberInputProps extends TextInputProps {
+export interface NumberInputProps {
+  // Text field props
+  placeholder?: string;
+  editable?: boolean;
+  textAlign?: 'left' | 'center' | 'right';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'number-pad';
+  returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send' | 'default';
+
+  // Number formatting
   locale?: string;
   currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
   fixedDecimalPlaces?: boolean;
+
+  // Constraints
   min?: number;
   max?: number;
+
+  // Value (controlled mode)
+  value?: string;
+
+  // Callbacks
+  onChangeText?: (value: string) => void;
   onNumberResult?: (result: {
     formattedText: string;
     value: number | null;
     complete: boolean;
   }) => void;
+  onFocus?: () => void;
+  onBlur?: () => void;
+
+  // Layout
+  style?: any;
 }
