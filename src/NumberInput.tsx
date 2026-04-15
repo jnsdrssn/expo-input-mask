@@ -34,8 +34,6 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
     const [formattedText, setFormattedText] = useState('');
     const selectionRef = useRef({ start: 0, end: 0 });
     const previousTextRef = useRef('');
-    const previousFormattedRef = useRef('');
-    const previousCaretRef = useRef(0);
     const lastRawValueRef = useRef('');
     const innerRef = useRef<TextInput>(null);
 
@@ -75,7 +73,7 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
         const result = runFormat(value, value.length, 'forward');
         if (!result.exceeded) {
           setFormattedText(result.formattedText);
-          previousFormattedRef.current = result.formattedText;
+          previousTextRef.current = result.formattedText;
           lastRawValueRef.current = result.value;
         }
       }
@@ -95,14 +93,12 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
 
         // If max was exceeded, revert to previous state
         if (result.exceeded) {
-          setFormattedText(previousFormattedRef.current);
+          setFormattedText(previousTextRef.current);
           return;
         }
 
         setFormattedText(result.formattedText);
         previousTextRef.current = result.formattedText;
-        previousFormattedRef.current = result.formattedText;
-        previousCaretRef.current = result.caretPosition;
         lastRawValueRef.current = result.value;
 
         onChangeText?.(result.value);

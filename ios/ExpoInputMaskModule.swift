@@ -137,35 +137,18 @@ public class ExpoInputMaskModule: Module {
         resolvedLocale = Locale.current
       }
 
-      // Determine the effective decimal separator for parsing input
-      let effectiveDecimalSeparator: String
-      if let ds = options.decimalSeparator {
-        effectiveDecimalSeparator = ds
-      } else if options.currency != nil {
-        let tmpFormatter = NumberFormatter()
-        tmpFormatter.locale = resolvedLocale
-        tmpFormatter.numberStyle = .currency
-        effectiveDecimalSeparator = tmpFormatter.decimalSeparator ?? "."
+      // Build the formatter once and read settings from it
+      let formatter = NumberFormatter()
+      formatter.locale = resolvedLocale
+      if let currencyCode = options.currency {
+        formatter.numberStyle = .currency
+        formatter.currencyCode = currencyCode
       } else {
-        let tmpFormatter = NumberFormatter()
-        tmpFormatter.locale = resolvedLocale
-        tmpFormatter.numberStyle = .decimal
-        effectiveDecimalSeparator = tmpFormatter.decimalSeparator ?? "."
+        formatter.numberStyle = .decimal
       }
 
-      // Determine max fractional digits
-      let maxFractionDigits: Int
-      if let dp = options.decimalPlaces {
-        maxFractionDigits = dp
-      } else if let currencyCode = options.currency {
-        let tmpFormatter = NumberFormatter()
-        tmpFormatter.locale = resolvedLocale
-        tmpFormatter.numberStyle = .currency
-        tmpFormatter.currencyCode = currencyCode
-        maxFractionDigits = tmpFormatter.maximumFractionDigits
-      } else {
-        maxFractionDigits = 2
-      }
+      let effectiveDecimalSeparator = options.decimalSeparator ?? formatter.decimalSeparator ?? "."
+      let maxFractionDigits = options.decimalPlaces ?? formatter.maximumFractionDigits
 
       // Strip input to digits and decimal separator only
       let inputText = options.text
@@ -215,24 +198,13 @@ public class ExpoInputMaskModule: Module {
         ]
       }
 
-      // Configure the formatter
-      let formatter = NumberFormatter()
-      formatter.locale = resolvedLocale
-
-      if let currencyCode = options.currency {
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currencyCode
-      } else {
-        formatter.numberStyle = .decimal
-      }
-
+      // Apply overrides and fraction settings
       if let gs = options.groupingSeparator {
         formatter.groupingSeparator = gs
       }
       if let ds = options.decimalSeparator {
         formatter.decimalSeparator = ds
       }
-
       formatter.minimumFractionDigits = hasDecimal ? min(fractionCount, maxFractionDigits) : 0
       formatter.maximumFractionDigits = maxFractionDigits
 
@@ -245,10 +217,11 @@ public class ExpoInputMaskModule: Module {
       }
 
       // Caret repositioning: walk the formatted string counting content chars
+      let resolvedDecSep = options.decimalSeparator ?? formatter.decimalSeparator ?? "."
       var newCaretPosition = formattedText.count
       var contentCount = 0
       for (i, char) in formattedText.enumerated() {
-        if char.isNumber || String(char) == (options.decimalSeparator ?? formatter.decimalSeparator ?? ".") {
+        if char.isNumber || String(char) == resolvedDecSep {
           contentCount += 1
         }
         if contentCount == contentCharsBeforeCaret {
@@ -267,17 +240,9 @@ public class ExpoInputMaskModule: Module {
         complete = options.min == nil || options.min! <= 0
       }
 
-      // Raw value string (always uses "." as decimal, no grouping)
-      let rawValue: String
-      if digits.isEmpty {
-        rawValue = ""
-      } else {
-        rawValue = digits
-      }
-
       return [
         "formattedText": formattedText,
-        "value": rawValue,
+        "value": digits,
         "complete": complete,
         "caretPosition": newCaretPosition,
         "exceeded": false

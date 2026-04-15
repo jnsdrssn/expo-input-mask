@@ -122,12 +122,12 @@ class ExpoInputMaskModule : Module() {
         JavaLocale.getDefault()
       }
 
-      // Determine the effective decimal separator for parsing input
-      val baseSymbols = DecimalFormatSymbols.getInstance(resolvedLocale)
+      // Build symbols once — reused for both parsing and formatting
+      val symbols = DecimalFormatSymbols.getInstance(resolvedLocale)
       val effectiveDecimalSeparator: Char = if (options.decimalSeparator != null) {
         options.decimalSeparator!!.first()
       } else {
-        baseSymbols.decimalSeparator
+        symbols.decimalSeparator
       }
 
       // Determine max fractional digits
@@ -182,8 +182,7 @@ class ExpoInputMaskModule : Module() {
         )
       }
 
-      // Configure the formatter
-      val symbols = DecimalFormatSymbols.getInstance(resolvedLocale)
+      // Apply separator overrides before building the formatter
       if (options.groupingSeparator != null) {
         symbols.groupingSeparator = options.groupingSeparator!!.first()
       }
