@@ -57,6 +57,7 @@ function NumberDemoInput({
   groupingSeparator,
   decimalSeparator,
   decimalPlaces,
+  fixedDecimalPlaces,
   min,
   max,
   placeholder,
@@ -67,6 +68,7 @@ function NumberDemoInput({
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
+  fixedDecimalPlaces?: boolean;
   min?: number;
   max?: number;
   placeholder: string;
@@ -87,6 +89,7 @@ function NumberDemoInput({
         groupingSeparator={groupingSeparator}
         decimalSeparator={decimalSeparator}
         decimalPlaces={decimalPlaces}
+        fixedDecimalPlaces={fixedDecimalPlaces}
         min={min}
         max={max}
         placeholder={placeholder}
@@ -161,6 +164,14 @@ export default function App() {
           label="USD Currency"
           currency="USD"
           locale="en-US"
+          placeholder="$0.00"
+        />
+
+        <NumberDemoInput
+          label="USD Fixed Decimals"
+          currency="USD"
+          locale="en-US"
+          fixedDecimalPlaces
           placeholder="$0.00"
         />
 

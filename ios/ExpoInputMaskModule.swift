@@ -30,6 +30,7 @@ struct ApplyNumberFormatOptions: Record {
   @Field var decimalPlaces: Int? = nil
   @Field var min: Double? = nil
   @Field var max: Double? = nil
+  @Field var fixedDecimalPlaces: Bool? = nil
 }
 
 public class ExpoInputMaskModule: Module {
@@ -205,15 +206,26 @@ public class ExpoInputMaskModule: Module {
       if let ds = options.decimalSeparator {
         formatter.decimalSeparator = ds
       }
-      formatter.minimumFractionDigits = hasDecimal ? min(fractionCount, maxFractionDigits) : 0
+      let isFixedDecimal = options.fixedDecimalPlaces == true
+      if isFixedDecimal {
+        formatter.minimumFractionDigits = maxFractionDigits
+      } else {
+        formatter.minimumFractionDigits = hasDecimal ? min(fractionCount, maxFractionDigits) : 0
+      }
       formatter.maximumFractionDigits = maxFractionDigits
 
       // Format the number
-      let formattedText: String
+      var formattedText: String
       if let val = numericValue {
         formattedText = formatter.string(from: NSNumber(value: val)) ?? digits
       } else {
         formattedText = ""
+      }
+
+      // When user typed a decimal point but no fraction digits yet, append the separator
+      // so they can see it (NumberFormatter drops trailing decimal points)
+      if hasDecimal && fractionCount == 0 && !isFixedDecimal && !formattedText.isEmpty {
+        formattedText += (options.decimalSeparator ?? formatter.decimalSeparator ?? ".")
       }
 
       // Caret repositioning: walk the formatted string counting content chars

@@ -43,6 +43,7 @@ class ApplyNumberFormatOptions : Record {
   @Field val decimalPlaces: Int? = null
   @Field val min: Double? = null
   @Field val max: Double? = null
+  @Field val fixedDecimalPlaces: Boolean? = null
 }
 
 class ExpoInputMaskModule : Module() {
@@ -201,14 +202,24 @@ class ExpoInputMaskModule : Module() {
       }
       formatter.decimalFormatSymbols = symbols
       formatter.isGroupingUsed = true
-      formatter.minimumFractionDigits = if (hasDecimal) minOf(fractionCount, maxFractionDigits) else 0
+      val isFixedDecimal = options.fixedDecimalPlaces == true
+      if (isFixedDecimal) {
+        formatter.minimumFractionDigits = maxFractionDigits
+      } else {
+        formatter.minimumFractionDigits = if (hasDecimal) minOf(fractionCount, maxFractionDigits) else 0
+      }
       formatter.maximumFractionDigits = maxFractionDigits
 
       // Format
-      val formattedText: String = if (numericValue != null) {
+      var formattedText: String = if (numericValue != null) {
         formatter.format(numericValue)
       } else {
         ""
+      }
+
+      // When user typed a decimal point but no fraction digits yet, append the separator
+      if (hasDecimal && fractionCount == 0 && !isFixedDecimal && formattedText.isNotEmpty()) {
+        formattedText += if (options.decimalSeparator != null) options.decimalSeparator!! else symbols.decimalSeparator.toString()
       }
 
       // Caret repositioning

@@ -21,6 +21,7 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
       groupingSeparator,
       decimalSeparator,
       decimalPlaces,
+      fixedDecimalPlaces,
       min,
       max,
       onNumberResult,
@@ -60,11 +61,12 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
           groupingSeparator,
           decimalSeparator,
           decimalPlaces,
+          fixedDecimalPlaces,
           min,
           max,
         });
       },
-      [locale, currency, groupingSeparator, decimalSeparator, decimalPlaces, min, max]
+      [locale, currency, groupingSeparator, decimalSeparator, decimalPlaces, fixedDecimalPlaces, min, max]
     );
 
     // Handle external value prop changes (value = raw numeric string)
@@ -89,12 +91,29 @@ export const NumberInput = forwardRef<TextInput, NumberInputProps>(
             (text.length - previousTextRef.current.length)
         );
 
-        const result = runFormat(text, caretPos, gravity);
+        let result = runFormat(text, caretPos, gravity);
 
         // If max was exceeded, revert to previous state
         if (result.exceeded) {
           setFormattedText(previousTextRef.current);
           return;
+        }
+
+        // When deleting a separator (comma, space, etc.), the digits don't change
+        // and formatting reproduces the same output. Detect this no-op and remove
+        // the digit before the caret instead.
+        if (
+          gravity === 'backward' &&
+          result.formattedText === previousTextRef.current &&
+          text !== previousTextRef.current
+        ) {
+          const adjusted =
+            text.slice(0, Math.max(0, caretPos - 1)) + text.slice(caretPos);
+          result = runFormat(adjusted, Math.max(0, caretPos - 1), gravity);
+          if (result.exceeded) {
+            setFormattedText(previousTextRef.current);
+            return;
+          }
         }
 
         setFormattedText(result.formattedText);

@@ -57,6 +57,7 @@ export interface ApplyNumberFormatOptions {
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
+  fixedDecimalPlaces?: boolean;
   min?: number;
   max?: number;
 }
@@ -74,6 +75,7 @@ export interface NumberInputProps extends TextInputProps {
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
+  fixedDecimalPlaces?: boolean;
   min?: number;
   max?: number;
   onNumberResult?: (result: {
