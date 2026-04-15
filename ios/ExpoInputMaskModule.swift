@@ -260,6 +260,106 @@ public class ExpoInputMaskModule: Module {
         "exceeded": false
       ]
     }
+
+    View(NumberInputView.self) {
+      Events(
+        "onChangeText",
+        "onNumberResult",
+        "onFocusEvent",
+        "onBlurEvent"
+      )
+
+      Prop("placeholder") { (view: NumberInputView, value: String?) in
+        view.placeholder = value
+      }
+
+      Prop("editable") { (view: NumberInputView, value: Bool?) in
+        view.isUserInteractionEnabled = value ?? true
+      }
+
+      Prop("textAlign") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "center":
+          view.textAlignment = .center
+        case "right":
+          view.textAlignment = .right
+        default:
+          view.textAlignment = .natural
+        }
+      }
+
+      Prop("keyboardType") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "numeric", "number-pad":
+          view.keyboardType = .numberPad
+        case "decimal-pad":
+          view.keyboardType = .decimalPad
+        default:
+          view.keyboardType = .decimalPad
+        }
+      }
+
+      Prop("returnKeyType") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "go": view.returnKeyType = .go
+        case "next": view.returnKeyType = .next
+        case "search": view.returnKeyType = .search
+        case "send": view.returnKeyType = .send
+        case "done": view.returnKeyType = .done
+        default: view.returnKeyType = .default
+        }
+      }
+
+      Prop("value") { (view: NumberInputView, value: String?) in
+        if let v = value {
+          view.setExternalValue(v)
+        }
+      }
+
+      Prop("min") { (view: NumberInputView, value: Double?) in
+        view.minValue = value
+      }
+
+      Prop("max") { (view: NumberInputView, value: Double?) in
+        view.maxValue = value
+      }
+
+      // Store formatting props on the view and apply them together in OnViewDidUpdateProps
+      Prop("locale") { (view: NumberInputView, value: String?) in
+        view.propLocale = value
+      }
+
+      Prop("currency") { (view: NumberInputView, value: String?) in
+        view.propCurrency = value
+      }
+
+      Prop("groupingSeparator") { (view: NumberInputView, value: String?) in
+        view.propGroupingSeparator = value
+      }
+
+      Prop("decimalSeparator") { (view: NumberInputView, value: String?) in
+        view.propDecimalSeparator = value
+      }
+
+      Prop("decimalPlaces") { (view: NumberInputView, value: Int?) in
+        view.propDecimalPlaces = value
+      }
+
+      Prop("fixedDecimalPlaces") { (view: NumberInputView, value: Bool?) in
+        view.propFixedDecimalPlaces = value
+      }
+
+      OnViewDidUpdateProps { (view: NumberInputView) in
+        view.updateFormatter(
+          locale: view.propLocale,
+          currency: view.propCurrency,
+          groupingSeparator: view.propGroupingSeparator,
+          decimalSeparator: view.propDecimalSeparator,
+          decimalPlaces: view.propDecimalPlaces,
+          fixedDecimalPlaces: view.propFixedDecimalPlaces
+        )
+      }
+    }
   }
 
   private func parseStrategy(_ strategy: String?) -> AffinityCalculationStrategy {

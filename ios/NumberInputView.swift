@@ -15,6 +15,14 @@ class NumberInputView: UITextField {
   var minValue: Double?
   var maxValue: Double?
 
+  // Stored prop values for formatter configuration
+  var propLocale: String?
+  var propCurrency: String?
+  var propGroupingSeparator: String?
+  var propDecimalSeparator: String?
+  var propDecimalPlaces: Int?
+  var propFixedDecimalPlaces: Bool?
+
   // MARK: - Private State
 
   private var previousText: String = ""
