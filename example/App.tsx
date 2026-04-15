@@ -93,7 +93,7 @@ function NumberDemoInput({
         min={min}
         max={max}
         placeholder={placeholder}
-        style={styles.input}
+        style={[styles.input, { height: 44 }]}
         onChangeText={setRawValue}
         onNumberResult={(result) => {
           setComplete(result.complete);
