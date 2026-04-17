@@ -12,10 +12,6 @@ import com.redmadrobot.inputmask.helper.Mask
 import com.redmadrobot.inputmask.model.CaretString
 import com.redmadrobot.inputmask.model.Notation
 import com.redmadrobot.inputmask.helper.AffinityCalculationStrategy
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Currency
-import java.util.Locale as JavaLocale
 
 class CustomNotationRecord : Record {
   @Field val character: String = ""

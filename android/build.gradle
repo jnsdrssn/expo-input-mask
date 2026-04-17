@@ -26,6 +26,16 @@ android {
     minSdkVersion safeExtGet("minSdkVersion", 23)
     targetSdkVersion safeExtGet("targetSdkVersion", 34)
   }
+
+  // Pin the JVM locale for unit tests so CI output doesn't drift with the
+  // developer shell's locale. All test cases pass locale explicitly, but
+  // Locale.getDefault() fallbacks elsewhere stay deterministic.
+  testOptions {
+    unitTests.all {
+      systemProperty 'user.language', 'en'
+      systemProperty 'user.country', 'US'
+    }
+  }
 }
 
 repositories {

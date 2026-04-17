@@ -117,10 +117,10 @@ class NumberFormattingAlgorithmTest {
       locale = "de-DE",
       currency = "EUR"
     )
-    val commaIdx = r.formattedText.indexOf(',')
-    val euroIdx = r.formattedText.indexOf('€')
-    assertTrue("expected '€' in output: ${r.formattedText}", euroIdx >= 0)
-    assertTrue("expected ',' before '€' in output: ${r.formattedText}", commaIdx in 0 until euroIdx)
+    // DecimalFormat can emit a non-breaking space between number and currency;
+    // normalize before comparing so the test isn't brittle to that detail.
+    val normalized = r.formattedText.replace('\u00A0', ' ')
+    assertEquals("123, €", normalized)
   }
 
   @Test
@@ -131,9 +131,8 @@ class NumberFormattingAlgorithmTest {
       locale = "de-DE",
       currency = "EUR"
     )
-    // Expect format like "1,23 €"
-    assertTrue("should start with 1,23: ${r.formattedText}", r.formattedText.startsWith("1,23"))
-    assertTrue("should end with €: ${r.formattedText}", r.formattedText.trim().endsWith("€"))
+    val normalized = r.formattedText.replace('\u00A0', ' ')
+    assertEquals("1,23 €", normalized)
   }
 
   // MARK: - Leading decimal separator (fix)
@@ -329,5 +328,70 @@ class NumberFormattingAlgorithmTest {
     )
     // Grouping changed to space
     assertEquals("1 234 567", r.formattedText)
+  }
+
+  // MARK: - Edge cases pinned by regression test
+
+  @Test
+  fun `leading decimal separator with caret at zero puts caret after prepended zero`() {
+    // Caret was at position 0 in candidate ".5" — before all content. After
+    // auto-prepending "0" the caret unconditionally shifts to 1 (between "0"
+    // and "."). Documented as acceptable UX; this test pins the behavior.
+    val r = NumberFormattingAlgorithm.apply(
+      text = ".5",
+      caretPosition = 0,
+      locale = "en-US"
+    )
+    assertEquals("0.5", r.formattedText)
+    assertEquals(1, r.caretPosition)
+  }
+
+  @Test
+  fun `bogus currency code falls back gracefully`() {
+    // Currency.getInstance("???") throws; the helper swallows and the formatter
+    // keeps its default currency behavior. The call must not crash and must
+    // still produce digit output.
+    val r = NumberFormattingAlgorithm.apply(
+      text = "123",
+      caretPosition = 3,
+      locale = "en-US",
+      currency = "???"
+    )
+    assertFalse(r.exceeded)
+    assertEquals("123", r.value)
+    assertTrue("formatted should contain 123: ${r.formattedText}", r.formattedText.contains("123"))
+  }
+
+  @Test
+  fun `fixedDecimalPlaces suppresses trailing decimal separator rendering`() {
+    // With fixed decimals, "123," should render as "123,00 €" (both fraction
+    // digits shown) — the trailing-decsep hack must not apply.
+    val r = NumberFormattingAlgorithm.apply(
+      text = "123,",
+      caretPosition = 4,
+      locale = "de-DE",
+      currency = "EUR",
+      fixedDecimalPlaces = true,
+      decimalPlaces = 2
+    )
+    val normalized = r.formattedText.replace('\u00A0', ' ')
+    assertEquals("123,00 €", normalized)
+  }
+
+  @Test
+  fun `integer cap can mask a max violation for over-cap pastes`() {
+    // Pasting 20 digits starting with leading zeros — after capping at 15,
+    // the retained digits parse as ~1.23×10^11, below the max of 1×10^14.
+    // Without the cap, the 20-digit value would exceed max.
+    // Pin the current (deliberately lossy) behavior so it's visible on the
+    // regression record rather than a silent surprise in the field.
+    val r = NumberFormattingAlgorithm.apply(
+      text = "00012345678901234567",
+      caretPosition = 20,
+      locale = "en-US",
+      max = 1e14
+    )
+    assertFalse("cap silently masks the over-max intent", r.exceeded)
+    assertEquals("000123456789012", r.value)
   }
 }

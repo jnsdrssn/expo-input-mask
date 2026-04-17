@@ -30,6 +30,17 @@ interface NativeNumberInputProps extends ViewProps {
 const NativeNumberInput =
   requireNativeViewManager<NativeNumberInputProps>('ExpoInputMask');
 
+/**
+ * Native number input with live locale-aware formatting.
+ *
+ * Integer digits are capped at 15 to stay within JavaScript number precision
+ * (2^53 is exact integer up to 16 digits but not for all values). Digits
+ * typed or pasted past the cap are silently dropped. Note that this cap
+ * applies before the `max` check, so a sufficiently large paste with leading
+ * zeros can produce a post-cap value below `max` even if the original input
+ * would have exceeded it.
+ */
+
 // requireNativeViewManager returns a ComponentType that accepts a ref at
 // runtime (the ref receives a native view instance with any AsyncFunctions
 // declared in the module attached as methods), but the type doesn't expose it.
