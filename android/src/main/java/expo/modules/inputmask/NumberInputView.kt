@@ -244,16 +244,25 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   private fun applyDecimalMode(candidate: String, caret: Int, decimalPlaces: Int) {
     val decSep = symbols.decimalSeparator
     val maxFrac = decimalPlaces
+    // Cap integer digits at 15 to stay within Double's exact-integer precision.
+    // Excess digits past the cap are silently dropped.
+    val intCap = 15
 
     val canonical = StringBuilder()
     var hasDecimal = false
     var fractionCount = 0
+    var integerCount = 0
     var contentCharsBeforeCaret = 0
 
     for ((i, char) in candidate.withIndex()) {
       if (char.isDigit()) {
-        if (hasDecimal && fractionCount >= maxFrac) continue
-        if (hasDecimal) fractionCount++
+        if (hasDecimal) {
+          if (fractionCount >= maxFrac) continue
+          fractionCount++
+        } else {
+          if (integerCount >= intCap) continue
+          integerCount++
+        }
         canonical.append(char)
         if (i < caret) contentCharsBeforeCaret++
       } else if (char == decSep && !hasDecimal && maxFrac > 0) {
@@ -263,7 +272,13 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
       }
     }
 
-    val canonicalStr = canonical.toString()
+    // Implicit leading zero: ".5" → "0.5" so toDoubleOrNull() accepts it
+    // and the formatter has a number to render.
+    var canonicalStr = canonical.toString()
+    if (canonicalStr.startsWith('.')) {
+      canonicalStr = "0$canonicalStr"
+      contentCharsBeforeCaret++
+    }
     val numericValue: Double? = if (canonicalStr.isEmpty()) null else canonicalStr.toDoubleOrNull()
 
     if (numericValue != null && maxValue != null && numericValue > maxValue!!) {

@@ -285,20 +285,25 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   private func applyDecimalMode(candidate: String, caret: Int, decimalPlaces: Int) -> Bool {
     let decSep = formatter.decimalSeparator ?? "."
     let maxFrac = decimalPlaces
+    // Cap integer digits at 15 to stay within Double's exact-integer precision.
+    // Excess digits past the cap are silently dropped.
+    let intCap = 15
 
     var canonical = ""
     var hasDecimal = false
     var fractionCount = 0
+    var integerCount = 0
     var contentCharsBeforeCaret = 0
     let clampedCaret = max(0, min(caret, candidate.count))
 
     for (i, char) in candidate.enumerated() {
       if char.isNumber {
-        if hasDecimal && fractionCount >= maxFrac {
-          continue
-        }
         if hasDecimal {
+          if fractionCount >= maxFrac { continue }
           fractionCount += 1
+        } else {
+          if integerCount >= intCap { continue }
+          integerCount += 1
         }
         canonical.append(char)
         if i < clampedCaret {
@@ -311,6 +316,13 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
           contentCharsBeforeCaret += 1
         }
       }
+    }
+
+    // Implicit leading zero: ".5" → "0.5" so Double can parse it and the
+    // formatter has a number to render.
+    if canonical.hasPrefix(".") {
+      canonical = "0" + canonical
+      contentCharsBeforeCaret += 1
     }
 
     let numericValue = canonical.isEmpty ? nil : Double(canonical)

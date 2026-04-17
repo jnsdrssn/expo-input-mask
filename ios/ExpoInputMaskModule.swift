@@ -151,21 +151,26 @@ public class ExpoInputMaskModule: Module {
       let effectiveDecimalSeparator = options.decimalSeparator ?? formatter.decimalSeparator ?? "."
       let maxFractionDigits = options.decimalPlaces ?? formatter.maximumFractionDigits
 
-      // Strip input to digits and decimal separator only
+      // Strip input to digits and decimal separator only.
+      // Integer digits are capped at 15 to stay within Double's exact-integer precision;
+      // excess digits past the cap are silently dropped.
       let inputText = options.text
+      let intCap = 15
       var digits = ""
       var hasDecimal = false
       var fractionCount = 0
+      var integerCount = 0
       let clampedCaret = max(0, min(options.caretPosition, inputText.count))
       var contentCharsBeforeCaret = 0
 
       for (i, char) in inputText.enumerated() {
         if char.isNumber {
           if hasDecimal {
-            if fractionCount >= maxFractionDigits {
-              continue
-            }
+            if fractionCount >= maxFractionDigits { continue }
             fractionCount += 1
+          } else {
+            if integerCount >= intCap { continue }
+            integerCount += 1
           }
           digits.append(char)
           if i < clampedCaret {
@@ -178,6 +183,13 @@ public class ExpoInputMaskModule: Module {
             contentCharsBeforeCaret += 1
           }
         }
+      }
+
+      // Implicit leading zero: ".5" → "0.5" so Double can parse it and the
+      // formatter has a number to render.
+      if digits.hasPrefix(".") {
+        digits = "0" + digits
+        contentCharsBeforeCaret += 1
       }
 
       // Parse the numeric value
