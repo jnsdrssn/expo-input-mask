@@ -131,145 +131,24 @@ public class ExpoInputMaskModule: Module {
     }
 
     Function("applyNumberFormat") { (options: ApplyNumberFormatOptions) -> [String: Any] in
-      let resolvedLocale: Locale
-      if let localeId = options.locale {
-        resolvedLocale = Locale(identifier: localeId)
-      } else {
-        resolvedLocale = Locale.current
-      }
-
-      // Build the formatter once and read settings from it
-      let formatter = NumberFormatter()
-      formatter.locale = resolvedLocale
-      if let currencyCode = options.currency {
-        formatter.numberStyle = .currency
-        formatter.currencyCode = currencyCode
-      } else {
-        formatter.numberStyle = .decimal
-      }
-
-      let effectiveDecimalSeparator = options.decimalSeparator ?? formatter.decimalSeparator ?? "."
-      let maxFractionDigits = options.decimalPlaces ?? formatter.maximumFractionDigits
-
-      // Strip input to digits and decimal separator only.
-      // Integer digits are capped at 15 to stay within Double's exact-integer precision;
-      // excess digits past the cap are silently dropped.
-      let inputText = options.text
-      let intCap = 15
-      var digits = ""
-      var hasDecimal = false
-      var fractionCount = 0
-      var integerCount = 0
-      let clampedCaret = max(0, min(options.caretPosition, inputText.count))
-      var contentCharsBeforeCaret = 0
-
-      for (i, char) in inputText.enumerated() {
-        if char.isNumber {
-          if hasDecimal {
-            if fractionCount >= maxFractionDigits { continue }
-            fractionCount += 1
-          } else {
-            if integerCount >= intCap { continue }
-            integerCount += 1
-          }
-          digits.append(char)
-          if i < clampedCaret {
-            contentCharsBeforeCaret += 1
-          }
-        } else if String(char) == effectiveDecimalSeparator && !hasDecimal && maxFractionDigits > 0 {
-          hasDecimal = true
-          digits.append(".")
-          if i < clampedCaret {
-            contentCharsBeforeCaret += 1
-          }
-        }
-      }
-
-      // Implicit leading zero: ".5" → "0.5" so Double can parse it and the
-      // formatter has a number to render.
-      if digits.hasPrefix(".") {
-        digits = "0" + digits
-        contentCharsBeforeCaret += 1
-      }
-
-      // Parse the numeric value
-      let numericValue: Double?
-      if digits.isEmpty {
-        numericValue = nil
-      } else {
-        numericValue = Double(digits)
-      }
-
-      // Enforce max constraint: reject input if value exceeds max
-      if let val = numericValue, let maxVal = options.max, val > maxVal {
-        return [
-          "formattedText": "",
-          "value": "",
-          "complete": false,
-          "caretPosition": 0,
-          "exceeded": true
-        ]
-      }
-
-      // Apply overrides and fraction settings
-      if let gs = options.groupingSeparator {
-        formatter.groupingSeparator = gs
-      }
-      if let ds = options.decimalSeparator {
-        formatter.decimalSeparator = ds
-      }
-      let isFixedDecimal = options.fixedDecimalPlaces == true
-      if isFixedDecimal {
-        formatter.minimumFractionDigits = maxFractionDigits
-      } else {
-        formatter.minimumFractionDigits = hasDecimal ? min(fractionCount, maxFractionDigits) : 0
-      }
-      formatter.maximumFractionDigits = maxFractionDigits
-
-      // Format the number
-      var formattedText: String
-      if let val = numericValue {
-        formattedText = formatter.string(from: NSNumber(value: val)) ?? digits
-      } else {
-        formattedText = ""
-      }
-
-      // When user typed a decimal point but no fraction digits yet, append the separator
-      // so they can see it (NumberFormatter drops trailing decimal points)
-      if hasDecimal && fractionCount == 0 && !isFixedDecimal && !formattedText.isEmpty {
-        formattedText += (options.decimalSeparator ?? formatter.decimalSeparator ?? ".")
-      }
-
-      // Caret repositioning: walk the formatted string counting content chars
-      let resolvedDecSep = options.decimalSeparator ?? formatter.decimalSeparator ?? "."
-      var newCaretPosition = formattedText.count
-      var contentCount = 0
-      for (i, char) in formattedText.enumerated() {
-        if char.isNumber || String(char) == resolvedDecSep {
-          contentCount += 1
-        }
-        if contentCount == contentCharsBeforeCaret {
-          newCaretPosition = i + 1
-          break
-        }
-      }
-
-      // Determine completeness based on min/max
-      let complete: Bool
-      if let val = numericValue {
-        let aboveMin = options.min == nil || val >= options.min!
-        let belowMax = options.max == nil || val <= options.max!
-        complete = aboveMin && belowMax
-      } else {
-        complete = options.min == nil || options.min! <= 0
-      }
-
+      let r = NumberFormattingAlgorithm.apply(
+        text: options.text,
+        caretPosition: options.caretPosition,
+        locale: options.locale,
+        currency: options.currency,
+        groupingSeparator: options.groupingSeparator,
+        decimalSeparator: options.decimalSeparator,
+        decimalPlaces: options.decimalPlaces,
+        fixedDecimalPlaces: options.fixedDecimalPlaces ?? false,
+        min: options.min,
+        max: options.max
+      )
       return [
-        "formattedText": formattedText,
-        "value": digits,
-        "complete": complete,
-        "caretPosition": newCaretPosition,
-        "exceeded": false
+        "formattedText": r.formattedText,
+        "value": r.value,
+        "complete": r.complete,
+        "caretPosition": r.caretPosition,
+        "exceeded": r.exceeded
       ]
     }
 
