@@ -1,7 +1,11 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useImperativeHandle, useRef } from 'react';
 import { requireNativeViewManager } from 'expo-modules-core';
-import type { NumberInputProps } from './ExpoInputMask.types';
-import type { View, ViewProps } from 'react-native';
+import type {
+  NumberInputProps,
+  NumberInputRef,
+  NumberValueResult,
+} from './ExpoInputMask.types';
+import type { ViewProps } from 'react-native';
 
 interface NativeNumberInputProps extends ViewProps {
   placeholder?: string;
@@ -14,14 +18,11 @@ interface NativeNumberInputProps extends ViewProps {
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
-  fixedDecimalPlaces?: boolean;
+  mode?: 'decimal' | 'cents';
   min?: number;
   max?: number;
-  value?: string;
-  onChangeText?: (event: { nativeEvent: { text: string } }) => void;
-  onNumberResult?: (event: {
-    nativeEvent: { formattedText: string; value: number | null; complete: boolean };
-  }) => void;
+  value?: number | null;
+  onValueChange?: (event: { nativeEvent: NumberValueResult }) => void;
   onFocusEvent?: () => void;
   onBlurEvent?: () => void;
 }
@@ -29,51 +30,50 @@ interface NativeNumberInputProps extends ViewProps {
 const NativeNumberInput =
   requireNativeViewManager<NativeNumberInputProps>('ExpoInputMask');
 
-// Cast to allow ref forwarding; requireNativeViewManager returns ComponentType
-// which accepts a ref at runtime even though the type doesn't declare it.
+// requireNativeViewManager returns a ComponentType that accepts a ref at
+// runtime (the ref receives a native view instance with any AsyncFunctions
+// declared in the module attached as methods), but the type doesn't expose it.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const NativeNumberInputWithRef = NativeNumberInput as React.ComponentType<
-  NativeNumberInputProps & { ref?: React.Ref<View> }
+  NativeNumberInputProps & { ref?: React.Ref<any> }
 >;
 
-export const NumberInput = React.forwardRef<View, NumberInputProps>(
-  (
-    {
-      onChangeText,
-      onNumberResult,
-      onFocus,
-      onBlur,
-      ...rest
-    },
-    ref
-  ) => {
-    const handleChangeText = useCallback(
-      (event: { nativeEvent: { text: string } }) => {
-        onChangeText?.(event.nativeEvent.text);
-      },
-      [onChangeText]
+export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
+  ({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nativeRef = useRef<any>(null);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: () => {
+          nativeRef.current?.focus?.();
+        },
+        blur: () => {
+          nativeRef.current?.blur?.();
+        },
+        clear: () => {
+          nativeRef.current?.clear?.();
+        },
+      }),
+      []
     );
 
-    const handleNumberResult = useCallback(
-      (event: {
-        nativeEvent: {
-          formattedText: string;
-          value: number | null;
-          complete: boolean;
-        };
-      }) => {
-        onNumberResult?.(event.nativeEvent);
+    const handleValueChange = useCallback(
+      (event: { nativeEvent: NumberValueResult }) => {
+        onChangeText?.(event.nativeEvent.formattedText);
+        onValueChange?.(event.nativeEvent);
       },
-      [onNumberResult]
+      [onChangeText, onValueChange]
     );
 
     return (
       <NativeNumberInputWithRef
-        ref={ref}
+        ref={nativeRef}
         {...rest}
-        onChangeText={handleChangeText}
-        onNumberResult={handleNumberResult}
-        onFocusEvent={onFocus}
-        onBlurEvent={onBlur}
+        onValueChange={handleValueChange}
+        onFocusEvent={onFocus as (() => void) | undefined}
+        onBlurEvent={onBlur as (() => void) | undefined}
       />
     );
   }

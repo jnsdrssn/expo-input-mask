@@ -69,39 +69,50 @@ export interface NumberFormatResult {
   caretPosition: number;
 }
 
-export interface NumberInputProps {
-  // Text field props
-  placeholder?: string;
-  editable?: boolean;
-  textAlign?: 'left' | 'center' | 'right';
-  keyboardType?: 'default' | 'numeric' | 'decimal-pad' | 'number-pad';
-  returnKeyType?: 'done' | 'go' | 'next' | 'search' | 'send' | 'default';
+export interface NumberValueResult {
+  value: number | null;
+  formattedText: string;
+  rawValue: string;
+  complete: boolean;
+}
 
+export interface NumberInputProps
+  extends Omit<
+    TextInputProps,
+    'value' | 'onChangeText' | 'onChange' | 'keyboardType'
+  > {
   // Number formatting
   locale?: string;
   currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
+  /** Max fractional digits. Defaults to the currency's default if `currency` is set, otherwise 2. */
   decimalPlaces?: number;
-  fixedDecimalPlaces?: boolean;
+  /**
+   * `'decimal'` (default): user types digits and a decimal separator; display matches input.
+   * `'cents'`: append-only digit mode — the last `decimalPlaces` digits are always the fraction
+   * (typing `123` with `decimalPlaces: 2` → `1.23`). The decimal separator is ignored on input.
+   */
+  mode?: 'decimal' | 'cents';
 
   // Constraints
   min?: number;
   max?: number;
 
-  // Value (controlled mode)
-  value?: string;
+  /** Controlled value. Pass `null` (or omit) to clear. Updates while the field is focused are ignored. */
+  value?: number | null;
 
-  // Callbacks
-  onChangeText?: (value: string) => void;
-  onNumberResult?: (result: {
-    formattedText: string;
-    value: number | null;
-    complete: boolean;
-  }) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
+  /** Fires with the display-formatted text on every change (matches the `<TextInput />` convention). */
+  onChangeText?: (formattedText: string) => void;
+  /** Fires on every change with parsed number, formatted text, dot-canonical raw string, and min/max completeness. */
+  onValueChange?: (result: NumberValueResult) => void;
 
-  // Layout
-  style?: any;
+  /** Narrowed for numeric input. Other `TextInput` keyboard types don't make sense here. */
+  keyboardType?: 'decimal-pad' | 'numeric' | 'number-pad';
+}
+
+export interface NumberInputRef {
+  focus: () => void;
+  blur: () => void;
+  clear: () => void;
 }

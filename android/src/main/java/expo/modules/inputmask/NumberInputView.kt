@@ -18,8 +18,7 @@ import kotlin.math.pow
 
 class NumberInputView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
 
-  val onChangeText by EventDispatcher()
-  val onNumberResult by EventDispatcher<Map<String, Any?>>()
+  val onValueChange by EventDispatcher<Map<String, Any?>>()
   val onFocusEvent by EventDispatcher()
   val onBlurEvent by EventDispatcher()
 
@@ -44,10 +43,17 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   var propGroupingSeparator: String? = null
   var propDecimalSeparator: String? = null
   var propDecimalPlaces: Int? = null
-  var propFixedDecimalPlaces: Boolean? = null
+  // "decimal" (default) or "cents"
+  var propMode: String? = null
 
   private var formatter: DecimalFormat = DecimalFormat.getInstance(Locale.US) as DecimalFormat
   private var symbols: DecimalFormatSymbols = DecimalFormatSymbols.getInstance(Locale.US)
+
+  // Resolved decimal places: explicit prop > currency default > 2
+  private var effectiveDecimalPlaces: Int = 2
+
+  private val isCentsMode: Boolean
+    get() = propMode == "cents"
 
   private var updatingText: Boolean = false
   private var lastFormattedText: String = ""
@@ -84,6 +90,25 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     }
   }
 
+  // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)
+
+  fun focusField() {
+    editText.requestFocus()
+  }
+
+  fun blurField() {
+    editText.clearFocus()
+  }
+
+  fun clearField() {
+    updatingText = true
+    editText.setText("")
+    lastFormattedText = ""
+    lastCaret = 0
+    updatingText = false
+    fireValueChange("", "", null)
+  }
+
   // MARK: - Formatter Configuration
 
   fun updateFormatter() {
@@ -91,6 +116,15 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
       Locale.forLanguageTag(propLocale!!.replace("_", "-"))
     } else {
       Locale.getDefault()
+    }
+
+    // Resolve decimal places
+    effectiveDecimalPlaces = when {
+      propDecimalPlaces != null -> propDecimalPlaces!!
+      propCurrency != null -> try {
+        Currency.getInstance(propCurrency).defaultFractionDigits
+      } catch (_: Exception) { 2 }
+      else -> 2
     }
 
     val syms = DecimalFormatSymbols.getInstance(locale)
@@ -113,9 +147,8 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     f.decimalFormatSymbols = syms
     f.isGroupingUsed = true
 
-    val maxFrac = propDecimalPlaces ?: 2
-    f.maximumFractionDigits = maxFrac
-    f.minimumFractionDigits = if (propFixedDecimalPlaces == true) maxFrac else 0
+    f.maximumFractionDigits = effectiveDecimalPlaces
+    f.minimumFractionDigits = if (isCentsMode) effectiveDecimalPlaces else 0
 
     formatter = f
     symbols = syms
@@ -123,24 +156,28 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
   // MARK: - Controlled Mode
 
-  fun setExternalValue(value: String) {
-    val parsed = value.toDoubleOrNull()
-    val decimalPlaces = propDecimalPlaces ?: 2
-    val isFixed = propFixedDecimalPlaces == true
+  /**
+   * Applies an externally-provided value. No-op while the field is focused
+   * so we don't race with active typing (the parent typically echoes every
+   * `onValueChange` back via `value={state}`, and mid-typing values like
+   * "1." would otherwise be overwritten by the re-format of 1.0 → "1").
+   */
+  fun setExternalValue(value: Double?) {
+    if (editText.isFocused) {
+      return
+    }
 
-    formatter.minimumFractionDigits = if (isFixed) decimalPlaces else 0
-    formatter.maximumFractionDigits = decimalPlaces
+    formatter.minimumFractionDigits = if (isCentsMode) effectiveDecimalPlaces else 0
+    formatter.maximumFractionDigits = effectiveDecimalPlaces
 
-    val formatted = if (parsed != null) formatter.format(parsed) else ""
+    val formatted = if (value != null) formatter.format(value) else ""
 
     if (editText.text?.toString() != formatted) {
       updatingText = true
       editText.setText(formatted)
-      if (!editText.isFocused) {
-        editText.setSelection(formatted.length)
-      }
+      editText.setSelection(formatted.length)
       lastFormattedText = formatted
-      lastCaret = editText.selectionStart
+      lastCaret = formatted.length
       updatingText = false
     }
   }
@@ -150,12 +187,11 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   private fun handleTextChanged(candidate: String) {
     val normalized = normalizeInsertion(candidate)
     val caret = editText.selectionStart.coerceIn(0, normalized.length)
-    val decimalPlaces = propDecimalPlaces ?: 2
 
-    if (propFixedDecimalPlaces == true) {
-      applyCentsMode(normalized, decimalPlaces)
+    if (isCentsMode) {
+      applyCentsMode(normalized, effectiveDecimalPlaces)
     } else {
-      applyDecimalMode(normalized, caret, decimalPlaces)
+      applyDecimalMode(normalized, caret, effectiveDecimalPlaces)
     }
   }
 
@@ -202,7 +238,7 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     setTextPreservingCaret(formatted, formatted.length)
 
     val rawValue = value?.let { String.format(Locale.US, "%.${decimalPlaces}f", it) } ?: ""
-    fireEvents(rawValue, formatted, value)
+    fireValueChange(rawValue, formatted, value)
   }
 
   private fun applyDecimalMode(candidate: String, caret: Int, decimalPlaces: Int) {
@@ -240,8 +276,8 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
     var formatted: String = numericValue?.let { formatter.format(it) } ?: ""
 
-    // Trailing decimal separator: render with one fraction digit, strip it so the
-    // currency suffix (e.g. " €") stays in the correct position.
+    // Trailing decimal separator: render with one fraction digit, strip it so
+    // the currency suffix (e.g. " €") stays in place.
     if (hasDecimal && fractionCount == 0 && numericValue != null && formatted.isNotEmpty()) {
       formatter.minimumFractionDigits = 1
       formatter.maximumFractionDigits = 1
@@ -268,7 +304,7 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     }
 
     setTextPreservingCaret(formatted, newCaret)
-    fireEvents(canonicalStr, formatted, numericValue)
+    fireValueChange(canonicalStr, formatted, numericValue)
   }
 
   private fun setTextPreservingCaret(formatted: String, caret: Int) {
@@ -290,14 +326,14 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
   // MARK: - Event Dispatch
 
-  private fun fireEvents(rawValue: String, formatted: String, value: Double?) {
-    onChangeText(mapOf("text" to rawValue))
+  private fun fireValueChange(rawValue: String, formatted: String, value: Double?) {
     val payload = mutableMapOf<String, Any?>(
       "formattedText" to formatted,
+      "rawValue" to rawValue,
       "value" to value,
       "complete" to isComplete(value)
     )
-    onNumberResult(payload)
+    onValueChange(payload)
   }
 
   private fun isComplete(value: Double?): Boolean {

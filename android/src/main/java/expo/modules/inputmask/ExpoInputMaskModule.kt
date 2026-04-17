@@ -258,12 +258,27 @@ class ExpoInputMaskModule : Module() {
     }
 
     View(NumberInputView::class) {
+      // Note: events are registered under `onFocusEvent` / `onBlurEvent` rather
+      // than `onFocus` / `onBlur` because Fabric reserves the latter names for
+      // its own focus-handling pipeline. The JS wrapper (NumberInput.tsx)
+      // transparently re-exposes them as `onFocus` / `onBlur` to users.
       Events(
-        "onChangeText",
-        "onNumberResult",
+        "onValueChange",
         "onFocusEvent",
         "onBlurEvent"
       )
+
+      AsyncFunction("focus") { view: NumberInputView ->
+        view.focusField()
+      }
+
+      AsyncFunction("blur") { view: NumberInputView ->
+        view.blurField()
+      }
+
+      AsyncFunction("clear") { view: NumberInputView ->
+        view.clearField()
+      }
 
       Prop("placeholder") { view: NumberInputView, value: String? ->
         view.editText.hint = value
@@ -277,6 +292,7 @@ class ExpoInputMaskModule : Module() {
         view.editText.gravity = when (value) {
           "center" -> Gravity.CENTER
           "right" -> Gravity.END or Gravity.CENTER_VERTICAL
+          "left" -> Gravity.LEFT or Gravity.CENTER_VERTICAL
           else -> Gravity.START or Gravity.CENTER_VERTICAL
         }
       }
@@ -322,8 +338,8 @@ class ExpoInputMaskModule : Module() {
         view.propDecimalPlaces = value
       }
 
-      Prop("fixedDecimalPlaces") { view: NumberInputView, value: Boolean? ->
-        view.propFixedDecimalPlaces = value
+      Prop("mode") { view: NumberInputView, value: String? ->
+        view.propMode = value
       }
 
       Prop("min") { view: NumberInputView, value: Double? ->
@@ -334,10 +350,8 @@ class ExpoInputMaskModule : Module() {
         view.maxValue = value
       }
 
-      Prop("value") { view: NumberInputView, value: String? ->
-        if (value != null) {
-          view.setExternalValue(value)
-        }
+      Prop("value") { view: NumberInputView, value: Double? ->
+        view.setExternalValue(value)
       }
 
       OnViewDidUpdateProps { view: NumberInputView ->

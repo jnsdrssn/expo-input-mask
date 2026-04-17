@@ -9,4 +9,6 @@ export type {
   ApplyNumberFormatOptions,
   NumberFormatResult,
   NumberInputProps,
+  NumberInputRef,
+  NumberValueResult,
 } from './ExpoInputMask.types';

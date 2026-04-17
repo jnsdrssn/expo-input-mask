@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native';
 import { MaskedTextInput, NumberInput } from 'expo-input-mask';
+import type { NumberValueResult } from 'expo-input-mask';
 
 function DemoInput({
   label,
@@ -57,7 +58,7 @@ function NumberDemoInput({
   groupingSeparator,
   decimalSeparator,
   decimalPlaces,
-  fixedDecimalPlaces,
+  mode,
   min,
   max,
   placeholder,
@@ -68,15 +69,17 @@ function NumberDemoInput({
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
-  fixedDecimalPlaces?: boolean;
+  mode?: 'decimal' | 'cents';
   min?: number;
   max?: number;
   placeholder: string;
 }) {
-  const [rawValue, setRawValue] = useState('');
-  const [complete, setComplete] = useState(false);
-  const [formatted, setFormatted] = useState('');
-  const [numericValue, setNumericValue] = useState<number | null>(null);
+  const [result, setResult] = useState<NumberValueResult>({
+    formattedText: '',
+    rawValue: '',
+    value: null,
+    complete: false,
+  });
 
   return (
     <View style={styles.card}>
@@ -89,23 +92,18 @@ function NumberDemoInput({
         groupingSeparator={groupingSeparator}
         decimalSeparator={decimalSeparator}
         decimalPlaces={decimalPlaces}
-        fixedDecimalPlaces={fixedDecimalPlaces}
+        mode={mode}
         min={min}
         max={max}
         placeholder={placeholder}
         style={[styles.input, { height: 44 }]}
-        onChangeText={setRawValue}
-        onNumberResult={(result) => {
-          setComplete(result.complete);
-          setFormatted(result.formattedText);
-          setNumericValue(result.value);
-        }}
+        onValueChange={setResult}
       />
-      <Text style={styles.info}>Formatted: {formatted}</Text>
-      <Text style={styles.info}>Raw: {rawValue}</Text>
-      <Text style={styles.info}>Value: {numericValue !== null ? numericValue : 'null'}</Text>
-      <Text style={[styles.info, complete ? styles.complete : styles.incomplete]}>
-        {complete ? 'Complete' : 'Incomplete'}
+      <Text style={styles.info}>Formatted: {result.formattedText}</Text>
+      <Text style={styles.info}>Raw: {result.rawValue}</Text>
+      <Text style={styles.info}>Value: {result.value !== null ? result.value : 'null'}</Text>
+      <Text style={[styles.info, result.complete ? styles.complete : styles.incomplete]}>
+        {result.complete ? 'Complete' : 'Incomplete'}
       </Text>
     </View>
   );
@@ -168,10 +166,10 @@ export default function App() {
         />
 
         <NumberDemoInput
-          label="USD Fixed Decimals"
+          label="USD Cents Mode"
           currency="USD"
           locale="en-US"
-          fixedDecimalPlaces
+          mode="cents"
           placeholder="$0.00"
         />
 

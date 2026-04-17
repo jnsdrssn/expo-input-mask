@@ -20,8 +20,7 @@ private class PaddedTextField: UITextField {
 class NumberInputView: ExpoView, UITextFieldDelegate {
   // MARK: - Event Dispatchers
 
-  let onChangeText = EventDispatcher()
-  let onNumberResult = EventDispatcher()
+  let onValueChange = EventDispatcher()
   let onFocusEvent = EventDispatcher()
   let onBlurEvent = EventDispatcher()
 
@@ -41,9 +40,10 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   var propGroupingSeparator: String?
   var propDecimalSeparator: String?
   var propDecimalPlaces: Int?
-  var propFixedDecimalPlaces: Bool?
+  // "decimal" (default) or "cents" — kept as a string so the native-JS type is simple.
+  var propMode: String?
 
-  // MARK: - Formatter
+  // MARK: - Derived state from props
 
   private var formatter: NumberFormatter = {
     let f = NumberFormatter()
@@ -54,6 +54,13 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     f.roundingMode = .floor
     return f
   }()
+
+  // Resolved decimal places: explicit prop > currency default > 2
+  private var effectiveDecimalPlaces: Int = 2
+
+  private var isCentsMode: Bool {
+    return propMode == "cents"
+  }
 
   // MARK: - Initializer
 
@@ -105,72 +112,93 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     onBlurEvent([:])
   }
 
+  // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)
+
+  func focusField() {
+    textField.becomeFirstResponder()
+  }
+
+  func blurField() {
+    textField.resignFirstResponder()
+  }
+
+  func clearField() {
+    textField.text = ""
+    fireValueChange(rawValue: "", formatted: "", value: nil)
+  }
+
   // MARK: - Formatter Configuration
 
-  func updateFormatter(
-    locale: String?,
-    currency: String?,
-    groupingSeparator: String?,
-    decimalSeparator: String?,
-    decimalPlaces: Int?,
-    fixedDecimalPlaces: Bool?
-  ) {
+  func updateFormatter() {
+    // Resolve decimal places
+    if let explicit = propDecimalPlaces {
+      effectiveDecimalPlaces = explicit
+    } else if let currencyCode = propCurrency {
+      let probe = NumberFormatter()
+      probe.numberStyle = .currency
+      probe.currencyCode = currencyCode
+      effectiveDecimalPlaces = probe.maximumFractionDigits
+    } else {
+      effectiveDecimalPlaces = 2
+    }
+
     let f = NumberFormatter()
     f.roundingMode = .floor
 
-    if let localeId = locale {
+    if let localeId = propLocale {
       f.locale = Locale(identifier: localeId)
     } else {
       f.locale = Locale(identifier: "en_US")
     }
 
-    if let currencyCode = currency {
+    if let currencyCode = propCurrency {
       f.numberStyle = .currency
       f.currencyCode = currencyCode
     } else {
       f.numberStyle = .decimal
     }
 
-    if let gs = groupingSeparator {
+    if let gs = propGroupingSeparator {
       f.groupingSeparator = gs
       f.currencyGroupingSeparator = gs
     }
 
-    if let ds = decimalSeparator {
+    if let ds = propDecimalSeparator {
       f.decimalSeparator = ds
       f.currencyDecimalSeparator = ds
     }
 
-    let maxFrac = decimalPlaces ?? 2
-    f.maximumFractionDigits = maxFrac
-    f.minimumFractionDigits = fixedDecimalPlaces == true ? maxFrac : 0
+    f.maximumFractionDigits = effectiveDecimalPlaces
+    f.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
 
     formatter = f
   }
 
   // MARK: - Controlled Mode
 
-  func setExternalValue(_ value: String) {
-    let parsed = Double(value)
-    let decimalPlaces = propDecimalPlaces ?? 2
-    let isFixed = propFixedDecimalPlaces == true
+  /// Applies an externally-provided value. No-op while the field is focused
+  /// so we don't race with active typing (the parent typically echoes every
+  /// `onValueChange` back via `value={state}`, and mid-typing values like
+  /// "1." would otherwise be overwritten by the re-format of 1.0 → "1").
+  func setExternalValue(_ value: Double?) {
+    if textField.isFirstResponder {
+      return
+    }
 
-    formatter.minimumFractionDigits = isFixed ? decimalPlaces : 0
-    formatter.maximumFractionDigits = decimalPlaces
+    formatter.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
+    formatter.maximumFractionDigits = effectiveDecimalPlaces
 
     let formatted: String
-    if let v = parsed {
-      formatted = formatter.string(from: NSNumber(value: v)) ?? value
+    if let v = value {
+      formatted = formatter.string(from: NSNumber(value: v)) ?? ""
     } else {
       formatted = ""
     }
 
     if textField.text != formatted {
       textField.text = formatted
-      if !textField.isFirstResponder {
-        let end = textField.endOfDocument
-        textField.selectedTextRange = textField.textRange(from: end, to: end)
-      }
+      let end = textField.endOfDocument
+      textField.selectedTextRange = textField.textRange(from: end, to: end)
     }
   }
 
@@ -182,9 +210,8 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     replacementString string: String
   ) -> Bool {
     // Normalize user-typed `.` / `,` to the formatter's decimal separator.
-    // The iOS decimal-pad keyboard does not respect the app's configured locale
-    // (it follows the system locale), so a de-DE NumberInput on an en-US device
-    // shows only "." on-screen — convert it to the expected ",".
+    // iOS decimal-pad follows the system locale, not the app's — so a de-DE
+    // NumberInput on an en-US device shows only "." on-screen; convert it.
     let decSep = formatter.decimalSeparator ?? "."
     var normalizedString = ""
     for ch in string {
@@ -200,16 +227,14 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     let candidate = current.replacingCharacters(in: range, with: normalizedString)
     let caret = range.location + (normalizedString as NSString).length
 
-    let decimalPlaces = propDecimalPlaces ?? 2
-
-    if propFixedDecimalPlaces == true {
-      return applyCentsMode(candidate: candidate, decimalPlaces: decimalPlaces)
+    if isCentsMode {
+      return applyCentsMode(candidate: candidate, decimalPlaces: effectiveDecimalPlaces)
     } else {
-      return applyDecimalMode(candidate: candidate, caret: caret, decimalPlaces: decimalPlaces)
+      return applyDecimalMode(candidate: candidate, caret: caret, decimalPlaces: effectiveDecimalPlaces)
     }
   }
 
-  // MARK: - Cents Mode (fixedDecimalPlaces = true)
+  // MARK: - Cents Mode
 
   private func applyCentsMode(candidate: String, decimalPlaces: Int) -> Bool {
     var digits = ""
@@ -251,7 +276,7 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
       rawValue = ""
     }
 
-    fireEvents(rawValue: rawValue, formatted: formatted, value: value)
+    fireValueChange(rawValue: rawValue, formatted: formatted, value: value)
     return false
   }
 
@@ -304,9 +329,8 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
       formatted = ""
     }
 
-    // Trailing decimal separator: user typed separator but no fraction digits yet.
-    // Render the number with one decimal digit, then strip that placeholder digit —
-    // this keeps the currency suffix (e.g. " €") in the correct position.
+    // Trailing decimal separator: render with one fraction digit, strip it so
+    // the currency suffix (e.g. " €") stays in place.
     if hasDecimal && fractionCount == 0, let v = numericValue, !formatted.isEmpty {
       formatter.minimumFractionDigits = 1
       formatter.maximumFractionDigits = 1
@@ -341,17 +365,17 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
       textField.selectedTextRange = textField.textRange(from: pos, to: pos)
     }
 
-    fireEvents(rawValue: canonical, formatted: formatted, value: numericValue)
+    fireValueChange(rawValue: canonical, formatted: formatted, value: numericValue)
     return false
   }
 
   // MARK: - Event Dispatch
 
-  private func fireEvents(rawValue: String, formatted: String, value: Double?) {
-    onChangeText(["text": rawValue])
+  private func fireValueChange(rawValue: String, formatted: String, value: Double?) {
     let jsValue: Any = value != nil ? value! : NSNull()
-    onNumberResult([
+    onValueChange([
       "formattedText": formatted,
+      "rawValue": rawValue,
       "value": jsValue,
       "complete": isComplete(value: value)
     ])

@@ -262,12 +262,27 @@ public class ExpoInputMaskModule: Module {
     }
 
     View(NumberInputView.self) {
+      // Note: events are registered under `onFocusEvent` / `onBlurEvent` rather
+      // than `onFocus` / `onBlur` because Fabric reserves the latter names for
+      // its own focus-handling pipeline. The JS wrapper (NumberInput.tsx)
+      // transparently re-exposes them as `onFocus` / `onBlur` to users.
       Events(
-        "onChangeText",
-        "onNumberResult",
+        "onValueChange",
         "onFocusEvent",
         "onBlurEvent"
       )
+
+      AsyncFunction("focus") { (view: NumberInputView) in
+        view.focusField()
+      }
+
+      AsyncFunction("blur") { (view: NumberInputView) in
+        view.blurField()
+      }
+
+      AsyncFunction("clear") { (view: NumberInputView) in
+        view.clearField()
+      }
 
       Prop("placeholder") { (view: NumberInputView, value: String?) in
         view.placeholder = value
@@ -283,6 +298,8 @@ public class ExpoInputMaskModule: Module {
           view.textAlignment = .center
         case "right":
           view.textAlignment = .right
+        case "left":
+          view.textAlignment = .left
         default:
           view.textAlignment = .natural
         }
@@ -310,10 +327,8 @@ public class ExpoInputMaskModule: Module {
         }
       }
 
-      Prop("value") { (view: NumberInputView, value: String?) in
-        if let v = value {
-          view.setExternalValue(v)
-        }
+      Prop("value") { (view: NumberInputView, value: Double?) in
+        view.setExternalValue(value)
       }
 
       Prop("min") { (view: NumberInputView, value: Double?) in
@@ -324,7 +339,6 @@ public class ExpoInputMaskModule: Module {
         view.maxValue = value
       }
 
-      // Store formatting props on the view and apply them together in OnViewDidUpdateProps
       Prop("locale") { (view: NumberInputView, value: String?) in
         view.propLocale = value
       }
@@ -345,19 +359,12 @@ public class ExpoInputMaskModule: Module {
         view.propDecimalPlaces = value
       }
 
-      Prop("fixedDecimalPlaces") { (view: NumberInputView, value: Bool?) in
-        view.propFixedDecimalPlaces = value
+      Prop("mode") { (view: NumberInputView, value: String?) in
+        view.propMode = value
       }
 
       OnViewDidUpdateProps { (view: NumberInputView) in
-        view.updateFormatter(
-          locale: view.propLocale,
-          currency: view.propCurrency,
-          groupingSeparator: view.propGroupingSeparator,
-          decimalSeparator: view.propDecimalSeparator,
-          decimalPlaces: view.propDecimalPlaces,
-          fixedDecimalPlaces: view.propFixedDecimalPlaces
-        )
+        view.updateFormatter()
       }
     }
   }
