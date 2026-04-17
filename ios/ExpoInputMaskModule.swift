@@ -274,7 +274,7 @@ public class ExpoInputMaskModule: Module {
       }
 
       Prop("editable") { (view: NumberInputView, value: Bool?) in
-        view.isUserInteractionEnabled = value ?? true
+        view.isEditable = value ?? true
       }
 
       Prop("textAlign") { (view: NumberInputView, value: String?) in
