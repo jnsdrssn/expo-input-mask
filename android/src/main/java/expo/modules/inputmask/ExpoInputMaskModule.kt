@@ -1,6 +1,7 @@
 package expo.modules.inputmask
 
 import android.text.InputType
+import android.text.method.DigitsKeyListener
 import android.view.Gravity
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -285,6 +286,9 @@ class ExpoInputMaskModule : Module() {
           "numeric", "number-pad" -> InputType.TYPE_CLASS_NUMBER
           else -> InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
+        // setInputType resets the keyListener; reapply ours so both "." and ","
+        // stay accepted regardless of the device locale's decimal separator.
+        view.editText.keyListener = DigitsKeyListener.getInstance("0123456789.,")
       }
 
       Prop("returnKeyType") { view: NumberInputView, value: String? ->
