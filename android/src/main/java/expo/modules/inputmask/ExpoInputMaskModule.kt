@@ -120,140 +120,24 @@ class ExpoInputMaskModule : Module() {
     }
 
     Function("applyNumberFormat") { options: ApplyNumberFormatOptions ->
-      val resolvedLocale: JavaLocale = if (options.locale != null) {
-        JavaLocale.forLanguageTag(options.locale!!.replace("_", "-"))
-      } else {
-        JavaLocale.getDefault()
-      }
-
-      // Build symbols once — reused for both parsing and formatting
-      val symbols = DecimalFormatSymbols.getInstance(resolvedLocale)
-      val effectiveDecimalSeparator: Char = if (options.decimalSeparator != null) {
-        options.decimalSeparator!!.first()
-      } else {
-        symbols.decimalSeparator
-      }
-
-      // Determine max fractional digits
-      val maxFractionDigits: Int = if (options.decimalPlaces != null) {
-        options.decimalPlaces!!
-      } else if (options.currency != null) {
-        try {
-          Currency.getInstance(options.currency).defaultFractionDigits
-        } catch (e: Exception) {
-          2
-        }
-      } else {
-        2
-      }
-
-      // Strip input to digits and decimal separator only
-      val inputText = options.text
-      val digitsBuilder = StringBuilder()
-      var hasDecimal = false
-      var fractionCount = 0
-      val clampedCaret = options.caretPosition.coerceIn(0, inputText.length)
-      var contentCharsBeforeCaret = 0
-
-      for ((i, char) in inputText.withIndex()) {
-        if (char.isDigit()) {
-          if (hasDecimal) {
-            if (fractionCount >= maxFractionDigits) continue
-            fractionCount++
-          }
-          digitsBuilder.append(char)
-          if (i < clampedCaret) contentCharsBeforeCaret++
-        } else if (char == effectiveDecimalSeparator && !hasDecimal && maxFractionDigits > 0) {
-          hasDecimal = true
-          digitsBuilder.append('.')
-          if (i < clampedCaret) contentCharsBeforeCaret++
-        }
-      }
-
-      val digits = digitsBuilder.toString()
-
-      // Parse the numeric value
-      val numericValue: Double? = if (digits.isEmpty()) null else digits.toDoubleOrNull()
-
-      // Enforce max constraint
-      if (numericValue != null && options.max != null && numericValue > options.max!!) {
-        return@Function mapOf(
-          "formattedText" to "",
-          "value" to "",
-          "complete" to false,
-          "caretPosition" to 0,
-          "exceeded" to true
-        )
-      }
-
-      // Apply separator overrides before building the formatter
-      if (options.groupingSeparator != null) {
-        symbols.groupingSeparator = options.groupingSeparator!!.first()
-      }
-      if (options.decimalSeparator != null) {
-        symbols.decimalSeparator = options.decimalSeparator!!.first()
-      }
-
-      val formatter: DecimalFormat
-      if (options.currency != null) {
-        formatter = DecimalFormat.getCurrencyInstance(resolvedLocale) as DecimalFormat
-        try {
-          formatter.currency = Currency.getInstance(options.currency)
-        } catch (_: Exception) {}
-      } else {
-        formatter = DecimalFormat.getInstance(resolvedLocale) as DecimalFormat
-      }
-      formatter.decimalFormatSymbols = symbols
-      formatter.isGroupingUsed = true
-      val isFixedDecimal = options.fixedDecimalPlaces == true
-      if (isFixedDecimal) {
-        formatter.minimumFractionDigits = maxFractionDigits
-      } else {
-        formatter.minimumFractionDigits = if (hasDecimal) minOf(fractionCount, maxFractionDigits) else 0
-      }
-      formatter.maximumFractionDigits = maxFractionDigits
-
-      // Format
-      var formattedText: String = if (numericValue != null) {
-        formatter.format(numericValue)
-      } else {
-        ""
-      }
-
-      // When user typed a decimal point but no fraction digits yet, append the separator
-      if (hasDecimal && fractionCount == 0 && !isFixedDecimal && formattedText.isNotEmpty()) {
-        formattedText += if (options.decimalSeparator != null) options.decimalSeparator!! else symbols.decimalSeparator.toString()
-      }
-
-      // Caret repositioning
-      val resolvedDecSep = symbols.decimalSeparator
-      var newCaretPosition = formattedText.length
-      var contentCount = 0
-      for ((i, char) in formattedText.withIndex()) {
-        if (char.isDigit() || char == resolvedDecSep) {
-          contentCount++
-        }
-        if (contentCount == contentCharsBeforeCaret) {
-          newCaretPosition = i + 1
-          break
-        }
-      }
-
-      // Completeness
-      val complete: Boolean = if (numericValue != null) {
-        val aboveMin = options.min == null || numericValue >= options.min!!
-        val belowMax = options.max == null || numericValue <= options.max!!
-        aboveMin && belowMax
-      } else {
-        options.min == null || options.min!! <= 0.0
-      }
-
+      val r = NumberFormattingAlgorithm.apply(
+        text = options.text,
+        caretPosition = options.caretPosition,
+        locale = options.locale,
+        currency = options.currency,
+        groupingSeparator = options.groupingSeparator,
+        decimalSeparator = options.decimalSeparator,
+        decimalPlaces = options.decimalPlaces,
+        fixedDecimalPlaces = options.fixedDecimalPlaces == true,
+        min = options.min,
+        max = options.max
+      )
       mapOf(
-        "formattedText" to formattedText,
-        "value" to digits,
-        "complete" to complete,
-        "caretPosition" to newCaretPosition,
-        "exceeded" to false
+        "formattedText" to r.formattedText,
+        "value" to r.value,
+        "complete" to r.complete,
+        "caretPosition" to r.caretPosition,
+        "exceeded" to r.exceeded
       )
     }
 

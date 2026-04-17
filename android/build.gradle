@@ -36,4 +36,6 @@ repositories {
 dependencies {
   implementation project(':expo-modules-core')
   implementation 'com.redmadrobot:input-mask-android:7.2.4'
+
+  testImplementation 'junit:junit:4.13.2'
 }
