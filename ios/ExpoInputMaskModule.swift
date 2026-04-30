@@ -22,7 +22,6 @@ struct ApplyMaskOptions: Record {
 struct ApplyNumberFormatOptions: Record {
   @Field var text: String = ""
   @Field var caretPosition: Int = 0
-  @Field var caretGravity: String = "forward"
   @Field var locale: String? = nil
   @Field var currency: String? = nil
   @Field var groupingSeparator: String? = nil

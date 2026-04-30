@@ -76,12 +76,20 @@ export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
       []
     );
 
+    // Stash the latest callbacks in a ref so `handleValueChange` is
+    // permanently stable. If we depended on `[onChangeText, onValueChange]`
+    // here, parents that inline their callbacks would rebuild the handler on
+    // every render, forcing the native view to rebind the `onValueChange`
+    // prop and burn cycles for no behavioral change.
+    const callbacksRef = useRef({ onChangeText, onValueChange });
+    callbacksRef.current = { onChangeText, onValueChange };
+
     const handleValueChange = useCallback(
       (event: { nativeEvent: NumberValueResult }) => {
-        onChangeText?.(event.nativeEvent.formattedText);
-        onValueChange?.(event.nativeEvent);
+        callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
+        callbacksRef.current.onValueChange?.(event.nativeEvent);
       },
-      [onChangeText, onValueChange]
+      []
     );
 
     return (

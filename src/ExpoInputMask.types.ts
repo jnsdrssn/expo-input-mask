@@ -51,7 +51,6 @@ export interface MaskedTextInputProps extends TextInputProps {
 export interface ApplyNumberFormatOptions {
   text: string;
   caretPosition: number;
-  caretGravity?: 'forward' | 'backward';
   locale?: string;
   currency?: string;
   groupingSeparator?: string;

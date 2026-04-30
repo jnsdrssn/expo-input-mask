@@ -37,17 +37,29 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   var minValue: Double? = null
   var maxValue: Double? = null
 
+  // Each formatting-config prop sets `formatterDirty` when it actually changes.
+  // `OnViewDidUpdateProps` then skips the formatter rebuild on prop batches
+  // that only echoed the controlled `value` back — the typical
+  // `onValueChange` → `setState` → `value` cycle in controlled mode.
   var propLocale: String? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   var propCurrency: String? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   var propGroupingSeparator: String? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   var propDecimalSeparator: String? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   var propDecimalPlaces: Int? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   // "decimal" (default) or "cents"
   var propMode: String? = null
+    set(value) { if (field != value) { field = value; formatterDirty = true } }
   // Last value the parent passed via `value`. Stashed so we can re-render it
   // after `updateFormatter()` resolves the final locale/currency on first mount.
   private var propValue: Double? = null
   private var hasPropValue: Boolean = false
+  // Initial `true` so the first `updateFormatter()` after mount always rebuilds.
+  private var formatterDirty: Boolean = true
 
   // Used only for `applyExternalValue` and decimal-separator lookup during
   // input normalization. The typing path delegates to NumberFormattingAlgorithm.
@@ -116,50 +128,53 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   // MARK: - Formatter Configuration
 
   fun updateFormatter() {
-    val locale: Locale = if (propLocale != null) {
-      Locale.forLanguageTag(propLocale!!.replace("_", "-"))
-    } else {
-      Locale.getDefault()
-    }
-
-    effectiveDecimalPlaces = when {
-      propDecimalPlaces != null -> propDecimalPlaces!!
-      propCurrency != null -> try {
-        Currency.getInstance(propCurrency).defaultFractionDigits
-      } catch (_: Exception) { 2 }
-      else -> 2
-    }
-
-    val syms = DecimalFormatSymbols.getInstance(locale)
-    if (propGroupingSeparator != null) {
-      syms.groupingSeparator = propGroupingSeparator!!.first()
-      syms.monetaryGroupingSeparator = propGroupingSeparator!!.first()
-    }
-    if (propDecimalSeparator != null) {
-      syms.decimalSeparator = propDecimalSeparator!!.first()
-      syms.monetaryDecimalSeparator = propDecimalSeparator!!.first()
-    }
-
-    val f: DecimalFormat = if (propCurrency != null) {
-      (DecimalFormat.getCurrencyInstance(locale) as DecimalFormat).also {
-        try { it.currency = Currency.getInstance(propCurrency) } catch (_: Exception) {}
+    if (formatterDirty) {
+      val locale: Locale = if (propLocale != null) {
+        Locale.forLanguageTag(propLocale!!.replace("_", "-"))
+      } else {
+        Locale.getDefault()
       }
-    } else {
-      DecimalFormat.getInstance(locale) as DecimalFormat
+
+      effectiveDecimalPlaces = when {
+        propDecimalPlaces != null -> propDecimalPlaces!!
+        propCurrency != null -> try {
+          Currency.getInstance(propCurrency).defaultFractionDigits
+        } catch (_: Exception) { 2 }
+        else -> 2
+      }
+
+      val syms = DecimalFormatSymbols.getInstance(locale)
+      if (propGroupingSeparator != null) {
+        syms.groupingSeparator = propGroupingSeparator!!.first()
+        syms.monetaryGroupingSeparator = propGroupingSeparator!!.first()
+      }
+      if (propDecimalSeparator != null) {
+        syms.decimalSeparator = propDecimalSeparator!!.first()
+        syms.monetaryDecimalSeparator = propDecimalSeparator!!.first()
+      }
+
+      val f: DecimalFormat = if (propCurrency != null) {
+        (DecimalFormat.getCurrencyInstance(locale) as DecimalFormat).also {
+          try { it.currency = Currency.getInstance(propCurrency) } catch (_: Exception) {}
+        }
+      } else {
+        DecimalFormat.getInstance(locale) as DecimalFormat
+      }
+      f.decimalFormatSymbols = syms
+      f.isGroupingUsed = true
+
+      f.maximumFractionDigits = effectiveDecimalPlaces
+      f.minimumFractionDigits = if (isCentsMode) effectiveDecimalPlaces else 0
+
+      formatter = f
+      symbols = syms
+      formatterDirty = false
     }
-    f.decimalFormatSymbols = syms
-    f.isGroupingUsed = true
 
-    f.maximumFractionDigits = effectiveDecimalPlaces
-    f.minimumFractionDigits = if (isCentsMode) effectiveDecimalPlaces else 0
-
-    formatter = f
-    symbols = syms
-
-    // Re-apply the controlled value with the freshly-resolved formatter so that
-    // first-mount renders (`<NumberInput currency="EUR" locale="de-DE" value={1.5} />`)
-    // don't briefly paint with the default en_US formatter before the prop
-    // batch finishes.
+    // Always re-apply the controlled value: on a dirty rebuild this catches
+    // the first-mount race (default en_US paint before locale/currency resolve);
+    // on a clean batch this lets a `value`-only echo paint through (cheap —
+    // `applyExternalValue` skips when text is already equal).
     applyExternalValue()
   }
 

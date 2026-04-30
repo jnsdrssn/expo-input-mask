@@ -34,7 +34,6 @@ class ApplyMaskOptions : Record {
 class ApplyNumberFormatOptions : Record {
   @Field val text: String = ""
   @Field val caretPosition: Int = 0
-  @Field val caretGravity: String = "forward"
   @Field val locale: String? = null
   @Field val currency: String? = null
   @Field val groupingSeparator: String? = null

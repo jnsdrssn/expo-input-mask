@@ -35,17 +35,23 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
 
   // MARK: - Stored Prop Values
 
-  var propLocale: String?
-  var propCurrency: String?
-  var propGroupingSeparator: String?
-  var propDecimalSeparator: String?
-  var propDecimalPlaces: Int?
+  // Each formatting-config prop sets `formatterDirty` when it actually changes.
+  // `OnViewDidUpdateProps` then skips the formatter rebuild on prop batches
+  // that only echoed the controlled `value` back — the typical
+  // `onValueChange` → `setState` → `value` cycle in controlled mode.
+  var propLocale: String? { didSet { if oldValue != propLocale { formatterDirty = true } } }
+  var propCurrency: String? { didSet { if oldValue != propCurrency { formatterDirty = true } } }
+  var propGroupingSeparator: String? { didSet { if oldValue != propGroupingSeparator { formatterDirty = true } } }
+  var propDecimalSeparator: String? { didSet { if oldValue != propDecimalSeparator { formatterDirty = true } } }
+  var propDecimalPlaces: Int? { didSet { if oldValue != propDecimalPlaces { formatterDirty = true } } }
   // "decimal" (default) or "cents" — kept as a string so the native-JS type is simple.
-  var propMode: String?
+  var propMode: String? { didSet { if oldValue != propMode { formatterDirty = true } } }
   // Last value the parent passed via `value`. Stashed so we can re-render it
   // after `updateFormatter()` resolves the final locale/currency on first mount.
   private var propValue: Double?
   private var hasPropValue: Bool = false
+  // Initial `true` so the first `updateFormatter()` after mount always rebuilds.
+  private var formatterDirty: Bool = true
 
   // MARK: - Derived state from props
 
@@ -135,53 +141,56 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   // MARK: - Formatter Configuration
 
   func updateFormatter() {
-    // Resolve decimal places: explicit > currency default > 2.
-    if let explicit = propDecimalPlaces {
-      effectiveDecimalPlaces = explicit
-    } else if let currencyCode = propCurrency {
-      let probe = NumberFormatter()
-      probe.numberStyle = .currency
-      probe.currencyCode = currencyCode
-      effectiveDecimalPlaces = probe.maximumFractionDigits
-    } else {
-      effectiveDecimalPlaces = 2
+    if formatterDirty {
+      // Resolve decimal places: explicit > currency default > 2.
+      if let explicit = propDecimalPlaces {
+        effectiveDecimalPlaces = explicit
+      } else if let currencyCode = propCurrency {
+        let probe = NumberFormatter()
+        probe.numberStyle = .currency
+        probe.currencyCode = currencyCode
+        effectiveDecimalPlaces = probe.maximumFractionDigits
+      } else {
+        effectiveDecimalPlaces = 2
+      }
+
+      let f = NumberFormatter()
+      f.roundingMode = .floor
+
+      if let localeId = propLocale {
+        f.locale = Locale(identifier: localeId)
+      } else {
+        f.locale = Locale(identifier: "en_US")
+      }
+
+      if let currencyCode = propCurrency {
+        f.numberStyle = .currency
+        f.currencyCode = currencyCode
+      } else {
+        f.numberStyle = .decimal
+      }
+
+      if let gs = propGroupingSeparator {
+        f.groupingSeparator = gs
+        f.currencyGroupingSeparator = gs
+      }
+
+      if let ds = propDecimalSeparator {
+        f.decimalSeparator = ds
+        f.currencyDecimalSeparator = ds
+      }
+
+      f.maximumFractionDigits = effectiveDecimalPlaces
+      f.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
+
+      formatter = f
+      formatterDirty = false
     }
 
-    let f = NumberFormatter()
-    f.roundingMode = .floor
-
-    if let localeId = propLocale {
-      f.locale = Locale(identifier: localeId)
-    } else {
-      f.locale = Locale(identifier: "en_US")
-    }
-
-    if let currencyCode = propCurrency {
-      f.numberStyle = .currency
-      f.currencyCode = currencyCode
-    } else {
-      f.numberStyle = .decimal
-    }
-
-    if let gs = propGroupingSeparator {
-      f.groupingSeparator = gs
-      f.currencyGroupingSeparator = gs
-    }
-
-    if let ds = propDecimalSeparator {
-      f.decimalSeparator = ds
-      f.currencyDecimalSeparator = ds
-    }
-
-    f.maximumFractionDigits = effectiveDecimalPlaces
-    f.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
-
-    formatter = f
-
-    // Re-apply the controlled value with the freshly-resolved formatter so that
-    // first-mount renders (`<NumberInput currency="EUR" locale="de-DE" value={1.5} />`)
-    // don't briefly paint with the default en_US formatter before the prop
-    // batch finishes.
+    // Always re-apply the controlled value: on a dirty rebuild this catches
+    // the first-mount race (default en_US paint before locale/currency resolve);
+    // on a clean batch this lets a `value`-only echo paint through (cheap —
+    // `applyExternalValue` skips when text is already equal).
     applyExternalValue()
   }
 
@@ -284,14 +293,7 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
       textField.selectedTextRange = textField.textRange(from: pos, to: pos)
     }
 
-    let numericValue: Double?
-    if isCentsMode {
-      // applyCents returns a fixed-decimal string ("1.23"); parse to double.
-      numericValue = result.value.isEmpty ? nil : Double(result.value)
-    } else {
-      numericValue = result.value.isEmpty ? nil : Double(result.value)
-    }
-
+    let numericValue: Double? = result.value.isEmpty ? nil : Double(result.value)
     fireValueChange(rawValue: result.value, formatted: result.formattedText, value: numericValue)
     return false
   }
