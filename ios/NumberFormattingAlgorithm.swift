@@ -1,6 +1,7 @@
 import Foundation
 
-/// Pure number-formatting algorithm behind `applyNumberFormat`.
+/// Pure number-formatting algorithm shared by `applyNumberFormat` (the JS
+/// bridge function) and `NumberInputView` (the native view's text watcher).
 ///
 /// Mirrors the Kotlin `NumberFormattingAlgorithm` on Android. Extracted so the
 /// two platforms share a single reference implementation of the walk →
@@ -176,6 +177,101 @@ enum NumberFormattingAlgorithm {
       value: digits,
       complete: complete,
       caretPosition: newCaretPosition,
+      exceeded: false
+    )
+  }
+
+  /// Cents mode: append-only digit accumulation. Strips non-digits, treats
+  /// the last `decimalPlaces` digits as the fractional part. The caret is
+  /// always parked at end-of-text (no in-place editing in this mode).
+  static func applyCents(
+    text: String,
+    decimalPlaces: Int,
+    locale: String? = nil,
+    currency: String? = nil,
+    groupingSeparator: String? = nil,
+    decimalSeparator: String? = nil,
+    min: Double? = nil,
+    max: Double? = nil
+  ) -> Result {
+    var digits = ""
+    for char in text where char.isNumber {
+      digits.append(char)
+    }
+    digits = String(digits.prefix(intDigitCap))
+
+    let numericValue: Double?
+    if digits.isEmpty {
+      numericValue = nil
+    } else {
+      let intPart = Double(digits) ?? 0
+      numericValue = intPart / pow(10.0, Double(decimalPlaces))
+    }
+
+    if let val = numericValue, let maxVal = max, val > maxVal {
+      return Result(
+        formattedText: "",
+        value: "",
+        complete: false,
+        caretPosition: 0,
+        exceeded: true
+      )
+    }
+
+    let resolvedLocale: Locale
+    if let localeId = locale {
+      resolvedLocale = Locale(identifier: localeId)
+    } else {
+      resolvedLocale = Locale.current
+    }
+
+    let formatter = NumberFormatter()
+    formatter.locale = resolvedLocale
+    if let currencyCode = currency {
+      formatter.numberStyle = .currency
+      formatter.currencyCode = currencyCode
+    } else {
+      formatter.numberStyle = .decimal
+    }
+    if let gs = groupingSeparator {
+      formatter.groupingSeparator = gs
+      formatter.currencyGroupingSeparator = gs
+    }
+    if let ds = decimalSeparator {
+      formatter.decimalSeparator = ds
+      formatter.currencyDecimalSeparator = ds
+    }
+    formatter.minimumFractionDigits = decimalPlaces
+    formatter.maximumFractionDigits = decimalPlaces
+
+    let formattedText: String
+    if let val = numericValue {
+      formattedText = formatter.string(from: NSNumber(value: val)) ?? digits
+    } else {
+      formattedText = ""
+    }
+
+    let rawValue: String
+    if let val = numericValue {
+      rawValue = String(format: "%.\(decimalPlaces)f", val)
+    } else {
+      rawValue = ""
+    }
+
+    let complete: Bool
+    if let val = numericValue {
+      let aboveMin = min == nil || val >= min!
+      let belowMax = max == nil || val <= max!
+      complete = aboveMin && belowMax
+    } else {
+      complete = min == nil || min! <= 0
+    }
+
+    return Result(
+      formattedText: formattedText,
+      value: rawValue,
+      complete: complete,
+      caretPosition: formattedText.count,
       exceeded: false
     )
   }

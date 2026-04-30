@@ -14,7 +14,6 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Currency
 import java.util.Locale
-import kotlin.math.pow
 
 class NumberInputView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
 
@@ -45,11 +44,16 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   var propDecimalPlaces: Int? = null
   // "decimal" (default) or "cents"
   var propMode: String? = null
+  // Last value the parent passed via `value`. Stashed so we can re-render it
+  // after `updateFormatter()` resolves the final locale/currency on first mount.
+  private var propValue: Double? = null
+  private var hasPropValue: Boolean = false
 
+  // Used only for `applyExternalValue` and decimal-separator lookup during
+  // input normalization. The typing path delegates to NumberFormattingAlgorithm.
   private var formatter: DecimalFormat = DecimalFormat.getInstance(Locale.US) as DecimalFormat
   private var symbols: DecimalFormatSymbols = DecimalFormatSymbols.getInstance(Locale.US)
 
-  // Resolved decimal places: explicit prop > currency default > 2
   private var effectiveDecimalPlaces: Int = 2
 
   private val isCentsMode: Boolean
@@ -118,7 +122,6 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
       Locale.getDefault()
     }
 
-    // Resolve decimal places
     effectiveDecimalPlaces = when {
       propDecimalPlaces != null -> propDecimalPlaces!!
       propCurrency != null -> try {
@@ -152,25 +155,41 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
     formatter = f
     symbols = syms
+
+    // Re-apply the controlled value with the freshly-resolved formatter so that
+    // first-mount renders (`<NumberInput currency="EUR" locale="de-DE" value={1.5} />`)
+    // don't briefly paint with the default en_US formatter before the prop
+    // batch finishes.
+    applyExternalValue()
   }
 
   // MARK: - Controlled Mode
 
   /**
-   * Applies an externally-provided value. No-op while the field is focused
-   * so we don't race with active typing (the parent typically echoes every
-   * `onValueChange` back via `value={state}`, and mid-typing values like
-   * "1." would otherwise be overwritten by the re-format of 1.0 → "1").
+   * Stash the externally-provided value, then re-render. The actual paint is
+   * deferred to `applyExternalValue` so it can run again from `updateFormatter`
+   * after the rest of the prop batch has resolved.
    */
   fun setExternalValue(value: Double?) {
-    if (editText.isFocused) {
-      return
-    }
+    propValue = value
+    hasPropValue = true
+    applyExternalValue()
+  }
+
+  /**
+   * Renders `propValue` into the EditText. No-op while the field is focused so
+   * we don't race with active typing (the parent typically echoes every
+   * `onValueChange` back via `value={state}`, and mid-typing values like "1."
+   * would otherwise be overwritten by the re-format of 1.0 → "1").
+   */
+  private fun applyExternalValue() {
+    if (!hasPropValue) return
+    if (editText.isFocused) return
 
     formatter.minimumFractionDigits = if (isCentsMode) effectiveDecimalPlaces else 0
     formatter.maximumFractionDigits = effectiveDecimalPlaces
 
-    val formatted = if (value != null) formatter.format(value) else ""
+    val formatted = if (propValue != null) formatter.format(propValue) else ""
 
     if (editText.text?.toString() != formatted) {
       updatingText = true
@@ -188,11 +207,40 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     val normalized = normalizeInsertion(candidate)
     val caret = editText.selectionStart.coerceIn(0, normalized.length)
 
-    if (isCentsMode) {
-      applyCentsMode(normalized, effectiveDecimalPlaces)
+    val result: NumberFormattingAlgorithm.Result = if (isCentsMode) {
+      NumberFormattingAlgorithm.applyCents(
+        text = normalized,
+        decimalPlaces = effectiveDecimalPlaces,
+        locale = propLocale,
+        currency = propCurrency,
+        groupingSeparator = propGroupingSeparator,
+        decimalSeparator = propDecimalSeparator,
+        min = minValue,
+        max = maxValue
+      )
     } else {
-      applyDecimalMode(normalized, caret, effectiveDecimalPlaces)
+      NumberFormattingAlgorithm.apply(
+        text = normalized,
+        caretPosition = caret,
+        locale = propLocale,
+        currency = propCurrency,
+        groupingSeparator = propGroupingSeparator,
+        decimalSeparator = propDecimalSeparator,
+        decimalPlaces = propDecimalPlaces,
+        fixedDecimalPlaces = false,
+        min = minValue,
+        max = maxValue
+      )
     }
+
+    if (result.exceeded) {
+      restoreLast()
+      return
+    }
+
+    setTextPreservingCaret(result.formattedText, result.caretPosition)
+    val numericValue: Double? = if (result.value.isEmpty()) null else result.value.toDoubleOrNull()
+    fireValueChange(result.value, result.formattedText, numericValue)
   }
 
   private fun normalizeInsertion(candidate: String): String {
@@ -209,117 +257,6 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
       }
     }
     return sb.toString()
-  }
-
-  private fun applyCentsMode(candidate: String, decimalPlaces: Int) {
-    val digitsBuilder = StringBuilder()
-    for (c in candidate) {
-      if (c.isDigit()) digitsBuilder.append(c)
-    }
-    val digits = digitsBuilder.toString().take(15)
-
-    val value: Double? = if (digits.isEmpty()) {
-      null
-    } else {
-      val intPart = digits.toDoubleOrNull() ?: 0.0
-      intPart / 10.0.pow(decimalPlaces.toDouble())
-    }
-
-    if (value != null && maxValue != null && value > maxValue!!) {
-      restoreLast()
-      return
-    }
-
-    formatter.minimumFractionDigits = decimalPlaces
-    formatter.maximumFractionDigits = decimalPlaces
-
-    val formatted = value?.let { formatter.format(it) } ?: ""
-
-    setTextPreservingCaret(formatted, formatted.length)
-
-    val rawValue = value?.let { String.format(Locale.US, "%.${decimalPlaces}f", it) } ?: ""
-    fireValueChange(rawValue, formatted, value)
-  }
-
-  private fun applyDecimalMode(candidate: String, caret: Int, decimalPlaces: Int) {
-    val decSep = symbols.decimalSeparator
-    val maxFrac = decimalPlaces
-    // Cap integer digits at 15 to stay within Double's exact-integer precision.
-    // Excess digits past the cap are silently dropped.
-    val intCap = 15
-
-    val canonical = StringBuilder()
-    var hasDecimal = false
-    var fractionCount = 0
-    var integerCount = 0
-    var contentCharsBeforeCaret = 0
-
-    for ((i, char) in candidate.withIndex()) {
-      if (char.isDigit()) {
-        if (hasDecimal) {
-          if (fractionCount >= maxFrac) continue
-          fractionCount++
-        } else {
-          if (integerCount >= intCap) continue
-          integerCount++
-        }
-        canonical.append(char)
-        if (i < caret) contentCharsBeforeCaret++
-      } else if (char == decSep && !hasDecimal && maxFrac > 0) {
-        hasDecimal = true
-        canonical.append('.')
-        if (i < caret) contentCharsBeforeCaret++
-      }
-    }
-
-    // Implicit leading zero: ".5" → "0.5" so toDoubleOrNull() accepts it
-    // and the formatter has a number to render.
-    var canonicalStr = canonical.toString()
-    if (canonicalStr.startsWith('.')) {
-      canonicalStr = "0$canonicalStr"
-      contentCharsBeforeCaret++
-    }
-    val numericValue: Double? = if (canonicalStr.isEmpty()) null else canonicalStr.toDoubleOrNull()
-
-    if (numericValue != null && maxValue != null && numericValue > maxValue!!) {
-      restoreLast()
-      return
-    }
-
-    formatter.minimumFractionDigits = if (hasDecimal) minOf(fractionCount, maxFrac) else 0
-    formatter.maximumFractionDigits = maxFrac
-
-    var formatted: String = numericValue?.let { formatter.format(it) } ?: ""
-
-    // Trailing decimal separator: render with one fraction digit, strip it so
-    // the currency suffix (e.g. " €") stays in place.
-    if (hasDecimal && fractionCount == 0 && numericValue != null && formatted.isNotEmpty()) {
-      formatter.minimumFractionDigits = 1
-      formatter.maximumFractionDigits = 1
-      val oneFrac = formatter.format(numericValue)
-      val sepIndex = oneFrac.indexOf(decSep)
-      formatted = if (sepIndex >= 0 && sepIndex + 1 < oneFrac.length) {
-        StringBuilder(oneFrac).deleteCharAt(sepIndex + 1).toString()
-      } else {
-        oneFrac
-      }
-    }
-
-    // Caret mapping
-    var newCaret = formatted.length
-    var contentCount = 0
-    for ((i, char) in formatted.withIndex()) {
-      if (char.isDigit() || char == decSep) {
-        contentCount++
-      }
-      if (contentCount == contentCharsBeforeCaret) {
-        newCaret = i + 1
-        break
-      }
-    }
-
-    setTextPreservingCaret(formatted, newCaret)
-    fireValueChange(canonicalStr, formatted, numericValue)
   }
 
   private fun setTextPreservingCaret(formatted: String, caret: Int) {

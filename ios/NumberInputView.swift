@@ -42,9 +42,15 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   var propDecimalPlaces: Int?
   // "decimal" (default) or "cents" — kept as a string so the native-JS type is simple.
   var propMode: String?
+  // Last value the parent passed via `value`. Stashed so we can re-render it
+  // after `updateFormatter()` resolves the final locale/currency on first mount.
+  private var propValue: Double?
+  private var hasPropValue: Bool = false
 
   // MARK: - Derived state from props
 
+  // Used to look up the active decimal separator for input normalization, and
+  // for formatting the controlled `value` prop in `applyExternalValue`.
   private var formatter: NumberFormatter = {
     let f = NumberFormatter()
     f.numberStyle = .decimal
@@ -55,7 +61,6 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     return f
   }()
 
-  // Resolved decimal places: explicit prop > currency default > 2
   private var effectiveDecimalPlaces: Int = 2
 
   private var isCentsMode: Bool {
@@ -130,7 +135,7 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   // MARK: - Formatter Configuration
 
   func updateFormatter() {
-    // Resolve decimal places
+    // Resolve decimal places: explicit > currency default > 2.
     if let explicit = propDecimalPlaces {
       effectiveDecimalPlaces = explicit
     } else if let currencyCode = propCurrency {
@@ -172,24 +177,38 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     f.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
 
     formatter = f
+
+    // Re-apply the controlled value with the freshly-resolved formatter so that
+    // first-mount renders (`<NumberInput currency="EUR" locale="de-DE" value={1.5} />`)
+    // don't briefly paint with the default en_US formatter before the prop
+    // batch finishes.
+    applyExternalValue()
   }
 
   // MARK: - Controlled Mode
 
-  /// Applies an externally-provided value. No-op while the field is focused
+  /// Stash the externally-provided value, then re-render. The actual paint is
+  /// deferred to `applyExternalValue` so it can run again from `updateFormatter`
+  /// after the rest of the prop batch has resolved.
+  func setExternalValue(_ value: Double?) {
+    propValue = value
+    hasPropValue = true
+    applyExternalValue()
+  }
+
+  /// Renders `propValue` into the text field. No-op while the field is focused
   /// so we don't race with active typing (the parent typically echoes every
   /// `onValueChange` back via `value={state}`, and mid-typing values like
   /// "1." would otherwise be overwritten by the re-format of 1.0 → "1").
-  func setExternalValue(_ value: Double?) {
-    if textField.isFirstResponder {
-      return
-    }
+  private func applyExternalValue() {
+    if !hasPropValue { return }
+    if textField.isFirstResponder { return }
 
     formatter.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
     formatter.maximumFractionDigits = effectiveDecimalPlaces
 
     let formatted: String
-    if let v = value {
+    if let v = propValue {
       formatted = formatter.string(from: NSNumber(value: v)) ?? ""
     } else {
       formatted = ""
@@ -227,157 +246,53 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     let candidate = current.replacingCharacters(in: range, with: normalizedString)
     let caret = range.location + (normalizedString as NSString).length
 
+    let result: NumberFormattingAlgorithm.Result
     if isCentsMode {
-      return applyCentsMode(candidate: candidate, decimalPlaces: effectiveDecimalPlaces)
+      result = NumberFormattingAlgorithm.applyCents(
+        text: candidate,
+        decimalPlaces: effectiveDecimalPlaces,
+        locale: propLocale,
+        currency: propCurrency,
+        groupingSeparator: propGroupingSeparator,
+        decimalSeparator: propDecimalSeparator,
+        min: minValue,
+        max: maxValue
+      )
     } else {
-      return applyDecimalMode(candidate: candidate, caret: caret, decimalPlaces: effectiveDecimalPlaces)
-    }
-  }
-
-  // MARK: - Cents Mode
-
-  private func applyCentsMode(candidate: String, decimalPlaces: Int) -> Bool {
-    var digits = ""
-    for char in candidate where char.isNumber {
-      digits.append(char)
-    }
-    digits = String(digits.prefix(15))  // guard Double precision
-
-    let value: Double?
-    if digits.isEmpty {
-      value = nil
-    } else {
-      let intPart = Double(digits) ?? 0
-      value = intPart / pow(10.0, Double(decimalPlaces))
+      result = NumberFormattingAlgorithm.apply(
+        text: candidate,
+        caretPosition: caret,
+        locale: propLocale,
+        currency: propCurrency,
+        groupingSeparator: propGroupingSeparator,
+        decimalSeparator: propDecimalSeparator,
+        decimalPlaces: propDecimalPlaces,
+        fixedDecimalPlaces: false,
+        min: minValue,
+        max: maxValue
+      )
     }
 
-    if let v = value, let maxVal = maxValue, v > maxVal {
+    if result.exceeded {
+      // Returning false leaves the existing text in place — the new keypress
+      // is silently rejected.
       return false
     }
 
-    formatter.minimumFractionDigits = decimalPlaces
-    formatter.maximumFractionDigits = decimalPlaces
-
-    let formatted: String
-    if let v = value {
-      formatted = formatter.string(from: NSNumber(value: v)) ?? digits
-    } else {
-      formatted = ""
-    }
-
-    textField.text = formatted
-    let end = textField.endOfDocument
-    textField.selectedTextRange = textField.textRange(from: end, to: end)
-
-    let rawValue: String
-    if let v = value {
-      rawValue = String(format: "%.\(decimalPlaces)f", v)
-    } else {
-      rawValue = ""
-    }
-
-    fireValueChange(rawValue: rawValue, formatted: formatted, value: value)
-    return false
-  }
-
-  // MARK: - Decimal Mode
-
-  private func applyDecimalMode(candidate: String, caret: Int, decimalPlaces: Int) -> Bool {
-    let decSep = formatter.decimalSeparator ?? "."
-    let maxFrac = decimalPlaces
-    // Cap integer digits at 15 to stay within Double's exact-integer precision.
-    // Excess digits past the cap are silently dropped.
-    let intCap = 15
-
-    var canonical = ""
-    var hasDecimal = false
-    var fractionCount = 0
-    var integerCount = 0
-    var contentCharsBeforeCaret = 0
-    let clampedCaret = max(0, min(caret, candidate.count))
-
-    for (i, char) in candidate.enumerated() {
-      if char.isNumber {
-        if hasDecimal {
-          if fractionCount >= maxFrac { continue }
-          fractionCount += 1
-        } else {
-          if integerCount >= intCap { continue }
-          integerCount += 1
-        }
-        canonical.append(char)
-        if i < clampedCaret {
-          contentCharsBeforeCaret += 1
-        }
-      } else if String(char) == decSep && !hasDecimal && maxFrac > 0 {
-        hasDecimal = true
-        canonical.append(".")
-        if i < clampedCaret {
-          contentCharsBeforeCaret += 1
-        }
-      }
-    }
-
-    // Implicit leading zero: ".5" → "0.5" so Double can parse it and the
-    // formatter has a number to render.
-    if canonical.hasPrefix(".") {
-      canonical = "0" + canonical
-      contentCharsBeforeCaret += 1
-    }
-
-    let numericValue = canonical.isEmpty ? nil : Double(canonical)
-
-    if let v = numericValue, let maxVal = maxValue, v > maxVal {
-      return false
-    }
-
-    formatter.minimumFractionDigits = hasDecimal ? min(fractionCount, maxFrac) : 0
-    formatter.maximumFractionDigits = maxFrac
-
-    var formatted: String
-    if let v = numericValue {
-      formatted = formatter.string(from: NSNumber(value: v)) ?? canonical
-    } else {
-      formatted = ""
-    }
-
-    // Trailing decimal separator: render with one fraction digit, strip it so
-    // the currency suffix (e.g. " €") stays in place.
-    if hasDecimal && fractionCount == 0, let v = numericValue, !formatted.isEmpty {
-      formatter.minimumFractionDigits = 1
-      formatter.maximumFractionDigits = 1
-      if let oneFrac = formatter.string(from: NSNumber(value: v)),
-         let sepRange = oneFrac.range(of: decSep) {
-        let afterSep = oneFrac.index(after: sepRange.lowerBound)
-        if afterSep < oneFrac.endIndex {
-          var mutable = oneFrac
-          mutable.remove(at: afterSep)
-          formatted = mutable
-        } else {
-          formatted = oneFrac
-        }
-      }
-    }
-
-    // Caret mapping: walk formatted, count chars matching digit or decSep
-    var newCaret = formatted.count
-    var contentCount = 0
-    for (i, char) in formatted.enumerated() {
-      if char.isNumber || String(char) == decSep {
-        contentCount += 1
-      }
-      if contentCount == contentCharsBeforeCaret {
-        newCaret = i + 1
-        break
-      }
-    }
-
-    textField.text = formatted
-    if let pos = textField.position(from: textField.beginningOfDocument, offset: newCaret) {
+    textField.text = result.formattedText
+    if let pos = textField.position(from: textField.beginningOfDocument, offset: result.caretPosition) {
       textField.selectedTextRange = textField.textRange(from: pos, to: pos)
     }
 
-    fireValueChange(rawValue: canonical, formatted: formatted, value: numericValue)
+    let numericValue: Double?
+    if isCentsMode {
+      // applyCents returns a fixed-decimal string ("1.23"); parse to double.
+      numericValue = result.value.isEmpty ? nil : Double(result.value)
+    } else {
+      numericValue = result.value.isEmpty ? nil : Double(result.value)
+    }
+
+    fireValueChange(rawValue: result.value, formatted: result.formattedText, value: numericValue)
     return false
   }
 

@@ -394,4 +394,132 @@ class NumberFormattingAlgorithmTest {
     assertFalse("cap silently masks the over-max intent", r.exceeded)
     assertEquals("000123456789012", r.value)
   }
+
+  // MARK: - applyCents
+
+  @Test
+  fun `cents empty text returns empty result`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("", r.formattedText)
+    assertEquals("", r.value)
+    assertFalse(r.exceeded)
+  }
+
+  @Test
+  fun `cents one digit renders as one cent`() {
+    // "1" → 0.01 → "$0.01"
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("$0.01", r.formattedText)
+    assertEquals("0.01", r.value)
+  }
+
+  @Test
+  fun `cents three digits becomes one point two three`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "123",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("$1.23", r.formattedText)
+    assertEquals("1.23", r.value)
+  }
+
+  @Test
+  fun `cents strips non-digits`() {
+    // Mixed input — only digits matter.
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "$1.23",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("$1.23", r.formattedText)
+    assertEquals("1.23", r.value)
+  }
+
+  @Test
+  fun `cents zero fraction digits jpy`() {
+    // JPY uses 0 fraction digits → cents mode collapses to integer mode.
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1234",
+      decimalPlaces = 0,
+      locale = "en-US",
+      currency = "JPY"
+    )
+    assertTrue("should contain 1,234: ${r.formattedText}", r.formattedText.contains("1,234"))
+    assertEquals("1234", r.value)
+  }
+
+  @Test
+  fun `cents three fraction digits bhd`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1234",
+      decimalPlaces = 3,
+      locale = "en-US",
+      currency = "BHD"
+    )
+    assertTrue("should contain 1.234: ${r.formattedText}", r.formattedText.contains("1.234"))
+    assertEquals("1.234", r.value)
+  }
+
+  @Test
+  fun `cents caret at end of formatted`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "12345",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("$123.45", r.formattedText)
+    assertEquals(r.formattedText.length, r.caretPosition)
+  }
+
+  @Test
+  fun `cents max exceeded returns exceeded flag`() {
+    // 99999 cents = $999.99, but max is 100.00.
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "99999",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD",
+      max = 100.0
+    )
+    assertTrue(r.exceeded)
+    assertEquals("", r.formattedText)
+  }
+
+  @Test
+  fun `cents 15 digit cap`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1234567890123456789",
+      decimalPlaces = 2,
+      locale = "en-US"
+    )
+    // Capped at 15 digits: "123456789012345" → 1234567890123.45
+    assertEquals("1234567890123.45", r.value)
+  }
+
+  @Test
+  fun `cents de-DE EUR`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "12345",
+      decimalPlaces = 2,
+      locale = "de-DE",
+      currency = "EUR"
+    )
+    val normalized = r.formattedText.replace('\u00A0', ' ')
+    assertEquals("123,45 €", normalized)
+    assertEquals("123.45", r.value)
+  }
 }

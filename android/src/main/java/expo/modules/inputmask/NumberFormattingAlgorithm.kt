@@ -4,9 +4,11 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Currency
 import java.util.Locale
+import kotlin.math.pow
 
 /**
- * Pure number-formatting algorithm behind `applyNumberFormat`.
+ * Pure number-formatting algorithm shared by `applyNumberFormat` (the JS
+ * bridge function) and `NumberInputView` (the native view's text watcher).
  *
  * Extracted so it can be unit-tested without instantiating the Expo module.
  * Given a raw input string + caret position and locale/currency configuration,
@@ -172,6 +174,91 @@ object NumberFormattingAlgorithm {
       value = digits,
       complete = complete,
       caretPosition = newCaretPosition,
+      exceeded = false
+    )
+  }
+
+  /**
+   * Cents mode: append-only digit accumulation. Strips non-digits, treats the
+   * last `decimalPlaces` digits as the fractional part. The caret is always
+   * parked at end-of-text (no in-place editing in this mode).
+   */
+  fun applyCents(
+    text: String,
+    decimalPlaces: Int,
+    locale: String? = null,
+    currency: String? = null,
+    groupingSeparator: String? = null,
+    decimalSeparator: String? = null,
+    min: Double? = null,
+    max: Double? = null
+  ): Result {
+    val digitsBuilder = StringBuilder()
+    for (c in text) {
+      if (c.isDigit()) digitsBuilder.append(c)
+    }
+    val digits = digitsBuilder.toString().take(INT_DIGIT_CAP)
+
+    val numericValue: Double? = if (digits.isEmpty()) {
+      null
+    } else {
+      val intPart = digits.toDoubleOrNull() ?: 0.0
+      intPart / 10.0.pow(decimalPlaces.toDouble())
+    }
+
+    if (numericValue != null && max != null && numericValue > max) {
+      return Result(
+        formattedText = "",
+        value = "",
+        complete = false,
+        caretPosition = 0,
+        exceeded = true
+      )
+    }
+
+    val resolvedLocale: Locale = if (locale != null) {
+      Locale.forLanguageTag(locale.replace("_", "-"))
+    } else {
+      Locale.getDefault()
+    }
+    val symbols = DecimalFormatSymbols.getInstance(resolvedLocale)
+    if (groupingSeparator != null) {
+      symbols.groupingSeparator = groupingSeparator.first()
+      symbols.monetaryGroupingSeparator = groupingSeparator.first()
+    }
+    if (decimalSeparator != null) {
+      symbols.decimalSeparator = decimalSeparator.first()
+      symbols.monetaryDecimalSeparator = decimalSeparator.first()
+    }
+
+    val formatter: DecimalFormat = if (currency != null) {
+      (DecimalFormat.getCurrencyInstance(resolvedLocale) as DecimalFormat).also {
+        try { it.currency = Currency.getInstance(currency) } catch (_: Exception) {}
+      }
+    } else {
+      DecimalFormat.getInstance(resolvedLocale) as DecimalFormat
+    }
+    formatter.decimalFormatSymbols = symbols
+    formatter.isGroupingUsed = true
+    formatter.minimumFractionDigits = decimalPlaces
+    formatter.maximumFractionDigits = decimalPlaces
+
+    val formattedText: String = if (numericValue != null) formatter.format(numericValue) else ""
+    val rawValue: String = if (numericValue != null) String.format(Locale.US, "%.${decimalPlaces}f", numericValue) else ""
+
+    val complete: Boolean = if (numericValue != null) {
+      val aboveMin = min == null || numericValue >= min
+      val belowMax = max == null || numericValue <= max
+      aboveMin && belowMax
+    } else {
+      min == null || min <= 0.0
+    }
+
+    return Result(
+      formattedText = formattedText,
+      value = rawValue,
+      complete = complete,
+      caretPosition = formattedText.length,
       exceeded = false
     )
   }
