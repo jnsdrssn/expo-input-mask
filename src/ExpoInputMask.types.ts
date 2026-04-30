@@ -76,11 +76,10 @@ export interface NumberValueResult {
   complete: boolean;
 }
 
-export interface NumberInputProps
-  extends Omit<
-    TextInputProps,
-    'value' | 'onChangeText' | 'onChange' | 'keyboardType'
-  > {
+export interface NumberInputProps extends Omit<
+  TextInputProps,
+  'value' | 'onChangeText' | 'onChange' | 'keyboardType'
+> {
   // Number formatting
   locale?: string;
   currency?: string;
@@ -99,10 +98,18 @@ export interface NumberInputProps
   min?: number;
   max?: number;
 
-  /** Controlled value. Pass `null` (or omit) to clear. Updates while the field is focused are ignored. */
+  /**
+   * Controlled value. Pass `null` to clear; passing `undefined` (or omitting
+   * the prop) leaves whatever the field currently shows untouched. Updates
+   * while the field is focused are ignored to avoid races with active typing.
+   */
   value?: number | null;
 
-  /** Fires with the display-formatted text on every change (matches the `<TextInput />` convention). */
+  /**
+   * Fires with the **display-formatted** text on every change (e.g. `"1,234.56"`,
+   * `"1.234,56 €"`). Matches the `<TextInput />` `onChangeText` convention.
+   * For the dot-canonical raw string or the parsed `number`, use `onValueChange`.
+   */
   onChangeText?: (formattedText: string) => void;
   /** Fires on every change with parsed number, formatted text, dot-canonical raw string, and min/max completeness. */
   onValueChange?: (result: NumberValueResult) => void;

@@ -10,8 +10,9 @@ import {
   NativeSyntheticEvent,
   TextInputSelectionChangeEventData,
 } from 'react-native';
-import { applyMask } from './ExpoInputMaskModule';
+
 import type { MaskedTextInputProps } from './ExpoInputMask.types';
+import { applyMask } from './ExpoInputMaskModule';
 
 export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
   (
@@ -62,7 +63,14 @@ export const MaskedTextInput = forwardRef<TextInput, MaskedTextInputProps>(
           customNotations,
         });
       },
-      [mask, autocomplete, autoskip, affinityMasks, affinityStrategy, customNotations]
+      [
+        mask,
+        autocomplete,
+        autoskip,
+        affinityMasks,
+        affinityStrategy,
+        customNotations,
+      ]
     );
 
     // Handle external value prop changes (value = extracted/unmasked value)

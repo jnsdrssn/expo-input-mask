@@ -1,4 +1,5 @@
 import { requireNativeModule } from 'expo-modules-core';
+
 import type {
   ApplyMaskOptions,
   MaskResult,

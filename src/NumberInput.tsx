@@ -1,11 +1,12 @@
-import React, { useCallback, useImperativeHandle, useRef } from 'react';
 import { requireNativeViewManager } from 'expo-modules-core';
+import React, { useCallback, useImperativeHandle, useRef } from 'react';
+import type { ViewProps } from 'react-native';
+
 import type {
   NumberInputProps,
   NumberInputRef,
   NumberValueResult,
 } from './ExpoInputMask.types';
-import type { ViewProps } from 'react-native';
 
 interface NativeNumberInputProps extends ViewProps {
   placeholder?: string;
@@ -27,6 +28,16 @@ interface NativeNumberInputProps extends ViewProps {
   onBlurEvent?: () => void;
 }
 
+// AsyncFunctions declared on the native view (`focus`, `blur`, `clear`) are
+// attached to the view instance the ref receives, but `requireNativeViewManager`
+// types its returned component without ref support. This is the minimal contract
+// the wrapper relies on.
+interface NativeNumberInputHandle {
+  focus?: () => void;
+  blur?: () => void;
+  clear?: () => void;
+}
+
 const NativeNumberInput =
   requireNativeViewManager<NativeNumberInputProps>('ExpoInputMask');
 
@@ -41,18 +52,13 @@ const NativeNumberInput =
  * would have exceeded it.
  */
 
-// requireNativeViewManager returns a ComponentType that accepts a ref at
-// runtime (the ref receives a native view instance with any AsyncFunctions
-// declared in the module attached as methods), but the type doesn't expose it.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const NativeNumberInputWithRef = NativeNumberInput as React.ComponentType<
-  NativeNumberInputProps & { ref?: React.Ref<any> }
+  NativeNumberInputProps & { ref?: React.Ref<NativeNumberInputHandle> }
 >;
 
 export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
   ({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const nativeRef = useRef<any>(null);
+    const nativeRef = useRef<NativeNumberInputHandle | null>(null);
 
     useImperativeHandle(
       ref,
