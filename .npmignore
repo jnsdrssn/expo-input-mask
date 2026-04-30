@@ -1,9 +1,17 @@
 example/
 docs/
 .eslintrc.js
+eslint.config.js
+.prettierrc
 tsconfig.json
 *.tsbuildinfo
 .expo/
 .git/
 android/build/
 android/.gradle/
+android/src/test/
+ios/Tests/
+.build/
+.swiftpm/
+Package.swift
+Package.resolved

@@ -4,6 +4,15 @@
   "description": "Native input masking for Expo — wraps RedMadRobot's input-mask libraries for iOS and Android",
   "main": "build/index.js",
   "types": "build/index.d.ts",
+  "files": [
+    "build",
+    "ios/*.swift",
+    "ios/*.podspec",
+    "android/build.gradle",
+    "android/src/main",
+    "expo-module.config.json",
+    "CHANGELOG.md"
+  ],
   "license": "MIT",
   "homepage": "https://github.com/jnsdrssn/expo-input-mask",
   "repository": {
