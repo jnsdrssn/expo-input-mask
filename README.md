@@ -1,8 +1,11 @@
 # expo-input-mask
 
-Native input masking for Expo and React Native, powered by RedMadRobot's [input-mask-ios](https://github.com/RedMadRobot/input-mask-ios) and [input-mask-android](https://github.com/RedMadRobot/input-mask-android).
+Native input masking and locale-aware number/currency formatting for Expo and React Native.
 
-Built with the Expo Modules API (Swift/Kotlin) — no bridge overhead, synchronous mask application on every keystroke.
+- **`<MaskedTextInput />`** — fixed-pattern masking (phone, date, credit card, ...) powered by RedMadRobot's [input-mask-ios](https://github.com/RedMadRobot/input-mask-ios) and [input-mask-android](https://github.com/RedMadRobot/input-mask-android).
+- **`<NumberInput />`** — locale-aware number and currency formatting backed by `NumberFormatter` (iOS) / `DecimalFormat` (Android), with append-only "cents" mode and `min`/`max` constraints.
+
+Both components are native views (Swift/Kotlin) on the Expo Modules API — no bridge overhead, formatting and caret management run on the UI thread.
 
 **iOS and Android only.** Requires Expo SDK 52+.
 
@@ -15,6 +18,8 @@ npx expo install expo-input-mask
 For bare React Native projects, run `npx pod-install` after installing.
 
 ## Quick Start
+
+### Masked text — phone
 
 ```tsx
 import { MaskedTextInput } from 'expo-input-mask';
@@ -31,6 +36,30 @@ function PhoneInput() {
       onMaskResult={({ complete }) => {
         // complete is true when all required mask characters are filled
       }}
+    />
+  );
+}
+```
+
+### Number / currency
+
+```tsx
+import { NumberInput } from 'expo-input-mask';
+
+function PriceInput() {
+  const [value, setValue] = useState<number | null>(null);
+
+  return (
+    <NumberInput
+      currency="USD"
+      locale="en-US"
+      placeholder="$0.00"
+      value={value}
+      onValueChange={(r) => setValue(r.value)}
+      // r.value     → parsed number (or null when empty)
+      // r.formattedText → display text (e.g. "$1,234.56")
+      // r.rawValue  → dot-canonical string (e.g. "1234.56")
+      // r.complete  → true when within min/max
     />
   );
 }
@@ -84,6 +113,78 @@ applyMask({
   affinityFormats?: string[],
   affinityStrategy?: 'whole_string' | 'prefix' | 'capacity' | 'extracted_value_capacity',
   customNotations?: CustomNotation[],
+})
+```
+
+### `<NumberInput />`
+
+A native numeric input with locale-aware grouping/decimal separators, optional currency formatting, and `min`/`max` constraints. Inherits `View` props (style, layout, accessibility) but **not** the full `TextInput` surface — `value`, `onChangeText`, `onChange`, and `keyboardType` are re-declared below.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `locale` | `string` | device locale | BCP-47 locale tag, e.g. `'en-US'`, `'de-DE'` |
+| `currency` | `string` | — | ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`. Drives prefix/suffix and default fraction digits |
+| `decimalPlaces` | `number` | currency default, else `2` | Max fractional digits |
+| `groupingSeparator` | `string` | locale default | Override the thousands separator |
+| `decimalSeparator` | `string` | locale default | Override the decimal separator |
+| `mode` | `'decimal' \| 'cents'` | `'decimal'` | `'decimal'`: free-form digit + separator entry. `'cents'`: append-only — typing `123` with `decimalPlaces: 2` renders as `1.23` |
+| `min` | `number` | — | Lower bound. Affects only `complete` flag |
+| `max` | `number` | — | Upper bound. Keystrokes that would exceed it are rejected |
+| `value` | `number \| null` | — | Controlled value. `null` clears; `undefined` (or omitted) leaves the field untouched. Updates while focused are ignored to avoid races with active typing |
+| `onChangeText` | `(formatted: string) => void` | — | Fires with the **display-formatted** text (matches `<TextInput />`). For raw / parsed forms, use `onValueChange` |
+| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, complete }` on every change |
+| `keyboardType` | `'decimal-pad' \| 'numeric' \| 'number-pad'` | `'decimal-pad'` | Narrowed for numeric input |
+
+The component also exposes an imperative ref:
+
+```tsx
+import { NumberInput, type NumberInputRef } from 'expo-input-mask';
+
+const ref = useRef<NumberInputRef>(null);
+// ref.current?.focus();
+// ref.current?.blur();
+// ref.current?.clear();
+```
+
+**Notes**
+
+- Integer digits are capped at 15 (Double exact-integer precision). Excess input is silently dropped.
+- Typing a leading `.` (or `,` in de-DE) auto-prepends `0`: `.5` renders as `0.5`.
+- A trailing decimal separator is preserved with the currency suffix in place: typing `123,` in de-DE EUR renders as `123, €`.
+
+### `applyNumberFormat(options)`
+
+Standalone formatter for one-off use, mirroring `applyMask`. Useful when you need to render a number in a row, label, or non-input context.
+
+```ts
+import { applyNumberFormat } from 'expo-input-mask';
+
+const result = applyNumberFormat({
+  text: '1234.56',
+  caretPosition: 7,
+  locale: 'de-DE',
+  currency: 'EUR',
+});
+// result.formattedText === '1.234,56 €'
+// result.value === '1234.56'   // dot-canonical
+// result.complete === true
+```
+
+Full options:
+
+```ts
+applyNumberFormat({
+  text: string,
+  caretPosition: number,
+  caretGravity?: 'forward' | 'backward', // default: 'forward'
+  locale?: string,
+  currency?: string,
+  groupingSeparator?: string,
+  decimalSeparator?: string,
+  decimalPlaces?: number,
+  fixedDecimalPlaces?: boolean, // pad with trailing zeros
+  min?: number,
+  max?: number,
 })
 ```
 
@@ -152,6 +253,8 @@ Define your own mask characters:
 Mask parsing and formatting powered by RedMadRobot's excellent libraries:
 - [input-mask-ios](https://github.com/RedMadRobot/input-mask-ios) (Swift)
 - [input-mask-android](https://github.com/RedMadRobot/input-mask-android) (Kotlin)
+
+Number formatting backed by Foundation's `NumberFormatter` (iOS) and `java.text.DecimalFormat` (Android).
 
 ## License
 
