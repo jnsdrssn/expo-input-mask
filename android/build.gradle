@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 group = 'expo.modules.inputmask'
-version = '0.1.0'
+version = '0.2.0'
 
 buildscript {
   def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
@@ -26,6 +26,16 @@ android {
     minSdkVersion safeExtGet("minSdkVersion", 23)
     targetSdkVersion safeExtGet("targetSdkVersion", 34)
   }
+
+  // Pin the JVM locale for unit tests so CI output doesn't drift with the
+  // developer shell's locale. All test cases pass locale explicitly, but
+  // Locale.getDefault() fallbacks elsewhere stay deterministic.
+  testOptions {
+    unitTests.all {
+      systemProperty 'user.language', 'en'
+      systemProperty 'user.country', 'US'
+    }
+  }
 }
 
 repositories {
@@ -36,4 +46,6 @@ repositories {
 dependencies {
   implementation project(':expo-modules-core')
   implementation 'com.redmadrobot:input-mask-android:7.2.4'
+
+  testImplementation 'junit:junit:4.13.2'
 }

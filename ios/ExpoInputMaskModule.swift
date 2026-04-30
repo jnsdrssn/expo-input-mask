@@ -19,6 +19,20 @@ struct ApplyMaskOptions: Record {
   @Field var customNotations: [CustomNotationRecord]? = nil
 }
 
+struct ApplyNumberFormatOptions: Record {
+  @Field var text: String = ""
+  @Field var caretPosition: Int = 0
+  @Field var caretGravity: String = "forward"
+  @Field var locale: String? = nil
+  @Field var currency: String? = nil
+  @Field var groupingSeparator: String? = nil
+  @Field var decimalSeparator: String? = nil
+  @Field var decimalPlaces: Int? = nil
+  @Field var min: Double? = nil
+  @Field var max: Double? = nil
+  @Field var fixedDecimalPlaces: Bool? = nil
+}
+
 public class ExpoInputMaskModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoInputMask")
@@ -114,6 +128,135 @@ public class ExpoInputMaskModule: Module {
           to: result.formattedText.caretPosition
         )
       ]
+    }
+
+    Function("applyNumberFormat") { (options: ApplyNumberFormatOptions) -> [String: Any] in
+      let r = NumberFormattingAlgorithm.apply(
+        text: options.text,
+        caretPosition: options.caretPosition,
+        locale: options.locale,
+        currency: options.currency,
+        groupingSeparator: options.groupingSeparator,
+        decimalSeparator: options.decimalSeparator,
+        decimalPlaces: options.decimalPlaces,
+        fixedDecimalPlaces: options.fixedDecimalPlaces ?? false,
+        min: options.min,
+        max: options.max
+      )
+      return [
+        "formattedText": r.formattedText,
+        "value": r.value,
+        "complete": r.complete,
+        "caretPosition": r.caretPosition,
+        "exceeded": r.exceeded
+      ]
+    }
+
+    View(NumberInputView.self) {
+      // Note: events are registered under `onFocusEvent` / `onBlurEvent` rather
+      // than `onFocus` / `onBlur` because Fabric reserves the latter names for
+      // its own focus-handling pipeline. The JS wrapper (NumberInput.tsx)
+      // transparently re-exposes them as `onFocus` / `onBlur` to users.
+      Events(
+        "onValueChange",
+        "onFocusEvent",
+        "onBlurEvent"
+      )
+
+      AsyncFunction("focus") { (view: NumberInputView) in
+        view.focusField()
+      }
+
+      AsyncFunction("blur") { (view: NumberInputView) in
+        view.blurField()
+      }
+
+      AsyncFunction("clear") { (view: NumberInputView) in
+        view.clearField()
+      }
+
+      Prop("placeholder") { (view: NumberInputView, value: String?) in
+        view.placeholder = value
+      }
+
+      Prop("editable") { (view: NumberInputView, value: Bool?) in
+        view.isEditable = value ?? true
+      }
+
+      Prop("textAlign") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "center":
+          view.textAlignment = .center
+        case "right":
+          view.textAlignment = .right
+        case "left":
+          view.textAlignment = .left
+        default:
+          view.textAlignment = .natural
+        }
+      }
+
+      Prop("keyboardType") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "numeric", "number-pad":
+          view.keyboardType = .numberPad
+        case "decimal-pad":
+          view.keyboardType = .decimalPad
+        default:
+          view.keyboardType = .decimalPad
+        }
+      }
+
+      Prop("returnKeyType") { (view: NumberInputView, value: String?) in
+        switch value {
+        case "go": view.returnKeyType = .go
+        case "next": view.returnKeyType = .next
+        case "search": view.returnKeyType = .search
+        case "send": view.returnKeyType = .send
+        case "done": view.returnKeyType = .done
+        default: view.returnKeyType = .default
+        }
+      }
+
+      Prop("value") { (view: NumberInputView, value: Double?) in
+        view.setExternalValue(value)
+      }
+
+      Prop("min") { (view: NumberInputView, value: Double?) in
+        view.minValue = value
+      }
+
+      Prop("max") { (view: NumberInputView, value: Double?) in
+        view.maxValue = value
+      }
+
+      Prop("locale") { (view: NumberInputView, value: String?) in
+        view.propLocale = value
+      }
+
+      Prop("currency") { (view: NumberInputView, value: String?) in
+        view.propCurrency = value
+      }
+
+      Prop("groupingSeparator") { (view: NumberInputView, value: String?) in
+        view.propGroupingSeparator = value
+      }
+
+      Prop("decimalSeparator") { (view: NumberInputView, value: String?) in
+        view.propDecimalSeparator = value
+      }
+
+      Prop("decimalPlaces") { (view: NumberInputView, value: Int?) in
+        view.propDecimalPlaces = value
+      }
+
+      Prop("mode") { (view: NumberInputView, value: String?) in
+        view.propMode = value
+      }
+
+      OnViewDidUpdateProps { (view: NumberInputView) in
+        view.updateFormatter()
+      }
     }
   }
 

@@ -1,6 +1,14 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, SafeAreaView } from 'react-native';
-import { MaskedTextInput } from 'expo-input-mask';
+import React, { useRef, useState } from 'react';
+import {
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { MaskedTextInput, NumberInput } from 'expo-input-mask';
+import type { NumberInputRef, NumberValueResult } from 'expo-input-mask';
 
 function DemoInput({
   label,
@@ -50,6 +58,64 @@ function DemoInput({
   );
 }
 
+function NumberDemoInput({
+  label,
+  locale,
+  currency,
+  groupingSeparator,
+  decimalSeparator,
+  decimalPlaces,
+  mode,
+  min,
+  max,
+  placeholder,
+}: {
+  label: string;
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  mode?: 'decimal' | 'cents';
+  min?: number;
+  max?: number;
+  placeholder: string;
+}) {
+  const [result, setResult] = useState<NumberValueResult>({
+    formattedText: '',
+    rawValue: '',
+    value: null,
+    complete: false,
+  });
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>{label}</Text>
+      {currency && <Text style={styles.maskLabel}>Currency: {currency}</Text>}
+      {locale && <Text style={styles.maskLabel}>Locale: {locale}</Text>}
+      <NumberInput
+        locale={locale}
+        currency={currency}
+        groupingSeparator={groupingSeparator}
+        decimalSeparator={decimalSeparator}
+        decimalPlaces={decimalPlaces}
+        mode={mode}
+        min={min}
+        max={max}
+        placeholder={placeholder}
+        style={[styles.input, { height: 44 }]}
+        onValueChange={setResult}
+      />
+      <Text style={styles.info}>Formatted: {result.formattedText}</Text>
+      <Text style={styles.info}>Raw: {result.rawValue}</Text>
+      <Text style={styles.info}>Value: {result.value !== null ? result.value : 'null'}</Text>
+      <Text style={[styles.info, result.complete ? styles.complete : styles.incomplete]}>
+        {result.complete ? 'Complete' : 'Incomplete'}
+      </Text>
+    </View>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaView style={styles.container}>
@@ -91,8 +157,120 @@ export default function App() {
             },
           ]}
         />
+
+        <Text style={[styles.title, { marginTop: 20 }]}>NumberInput Demos</Text>
+
+        <NumberDemoInput
+          label="Plain Number"
+          placeholder="1,234,567"
+        />
+
+        <NumberDemoInput
+          label="USD Currency"
+          currency="USD"
+          locale="en-US"
+          placeholder="$0.00"
+        />
+
+        <NumberDemoInput
+          label="USD Cents Mode"
+          currency="USD"
+          locale="en-US"
+          mode="cents"
+          placeholder="$0.00"
+        />
+
+        <NumberDemoInput
+          label="EUR Currency (German)"
+          currency="EUR"
+          locale="de-DE"
+          placeholder="0,00 €"
+        />
+
+        <NumberDemoInput
+          label="With Min/Max (0 - 10,000)"
+          min={0}
+          max={10000}
+          placeholder="0 - 10,000"
+        />
+
+        <NumberDemoInput
+          label="Custom: 4 decimal places"
+          decimalPlaces={4}
+          placeholder="0.0000"
+        />
+
+        <ControlledNumberDemo />
+
+        <ImperativeRefDemo />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Controlled-mode demo: parent owns the value and echoes `onValueChange` back
+ * via `value`. Exercises the first-mount-with-initial-value path and the
+ * focused-typing no-op behavior of `setExternalValue`.
+ */
+function ControlledNumberDemo() {
+  const [value, setValue] = useState<number | null>(1234.56);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>Controlled (EUR / de-DE, initial 1234.56)</Text>
+      <Text style={styles.maskLabel}>value = {value === null ? 'null' : value}</Text>
+      <NumberInput
+        currency="EUR"
+        locale="de-DE"
+        value={value}
+        placeholder="0,00 €"
+        style={[styles.input, { height: 44 }]}
+        onValueChange={(r) => setValue(r.value)}
+      />
+      <View style={styles.buttonRow}>
+        <Pressable style={styles.button} onPress={() => setValue(0)}>
+          <Text style={styles.buttonText}>Reset to 0</Text>
+        </Pressable>
+        <Pressable style={styles.button} onPress={() => setValue(null)}>
+          <Text style={styles.buttonText}>Set null</Text>
+        </Pressable>
+        <Pressable style={styles.button} onPress={() => setValue(9999.99)}>
+          <Text style={styles.buttonText}>Set 9999.99</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Imperative-ref demo: focus / blur / clear via `NumberInputRef`.
+ */
+function ImperativeRefDemo() {
+  const ref = useRef<NumberInputRef>(null);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>Imperative ref (focus / blur / clear)</Text>
+      <NumberInput
+        ref={ref}
+        currency="USD"
+        locale="en-US"
+        placeholder="$0.00"
+        style={[styles.input, { height: 44 }]}
+      />
+      <View style={styles.buttonRow}>
+        <Pressable style={styles.button} onPress={() => ref.current?.focus()}>
+          <Text style={styles.buttonText}>Focus</Text>
+        </Pressable>
+        <Pressable style={styles.button} onPress={() => ref.current?.blur()}>
+          <Text style={styles.buttonText}>Blur</Text>
+        </Pressable>
+        <Pressable style={styles.button} onPress={() => ref.current?.clear()}>
+          <Text style={styles.buttonText}>Clear</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -153,6 +331,23 @@ const styles = StyleSheet.create({
   },
   incomplete: {
     color: '#c62828',
+    fontWeight: '600',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  button: {
+    flex: 1,
+    backgroundColor: '#1976d2',
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 13,
     fontWeight: '600',
   },
 });

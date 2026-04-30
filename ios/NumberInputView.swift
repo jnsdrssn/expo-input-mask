@@ -1,0 +1,319 @@
+import ExpoModulesCore
+import UIKit
+
+private class PaddedTextField: UITextField {
+  var contentPadding = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
+
+  override func textRect(forBounds bounds: CGRect) -> CGRect {
+    return bounds.inset(by: contentPadding)
+  }
+
+  override func editingRect(forBounds bounds: CGRect) -> CGRect {
+    return bounds.inset(by: contentPadding)
+  }
+
+  override func placeholderRect(forBounds bounds: CGRect) -> CGRect {
+    return bounds.inset(by: contentPadding)
+  }
+}
+
+class NumberInputView: ExpoView, UITextFieldDelegate {
+  // MARK: - Event Dispatchers
+
+  let onValueChange = EventDispatcher()
+  let onFocusEvent = EventDispatcher()
+  let onBlurEvent = EventDispatcher()
+
+  // MARK: - Subview
+
+  private let textField = PaddedTextField()
+
+  // MARK: - Constraints
+
+  var minValue: Double?
+  var maxValue: Double?
+
+  // MARK: - Stored Prop Values
+
+  var propLocale: String?
+  var propCurrency: String?
+  var propGroupingSeparator: String?
+  var propDecimalSeparator: String?
+  var propDecimalPlaces: Int?
+  // "decimal" (default) or "cents" — kept as a string so the native-JS type is simple.
+  var propMode: String?
+  // Last value the parent passed via `value`. Stashed so we can re-render it
+  // after `updateFormatter()` resolves the final locale/currency on first mount.
+  private var propValue: Double?
+  private var hasPropValue: Bool = false
+
+  // MARK: - Derived state from props
+
+  // Used to look up the active decimal separator for input normalization, and
+  // for formatting the controlled `value` prop in `applyExternalValue`.
+  private var formatter: NumberFormatter = {
+    let f = NumberFormatter()
+    f.numberStyle = .decimal
+    f.locale = Locale(identifier: "en_US")
+    f.minimumFractionDigits = 0
+    f.maximumFractionDigits = 2
+    f.roundingMode = .floor
+    return f
+  }()
+
+  private var effectiveDecimalPlaces: Int = 2
+
+  private var isCentsMode: Bool {
+    return propMode == "cents"
+  }
+
+  // MARK: - Initializer
+
+  required init(appContext: AppContext? = nil) {
+    super.init(appContext: appContext)
+    textField.frame = bounds
+    textField.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    textField.keyboardType = .decimalPad
+    textField.delegate = self
+    textField.addTarget(self, action: #selector(handleEditingDidBegin), for: .editingDidBegin)
+    textField.addTarget(self, action: #selector(handleEditingDidEnd), for: .editingDidEnd)
+    addSubview(textField)
+  }
+
+  // MARK: - Forwarded Props
+
+  var placeholder: String? {
+    get { textField.placeholder }
+    set { textField.placeholder = newValue }
+  }
+
+  var textAlignment: NSTextAlignment {
+    get { textField.textAlignment }
+    set { textField.textAlignment = newValue }
+  }
+
+  var keyboardType: UIKeyboardType {
+    get { textField.keyboardType }
+    set { textField.keyboardType = newValue }
+  }
+
+  var returnKeyType: UIReturnKeyType {
+    get { textField.returnKeyType }
+    set { textField.returnKeyType = newValue }
+  }
+
+  var isEditable: Bool {
+    get { textField.isUserInteractionEnabled }
+    set { textField.isUserInteractionEnabled = newValue }
+  }
+
+  // MARK: - Focus / Blur
+
+  @objc private func handleEditingDidBegin() {
+    onFocusEvent([:])
+  }
+
+  @objc private func handleEditingDidEnd() {
+    onBlurEvent([:])
+  }
+
+  // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)
+
+  func focusField() {
+    textField.becomeFirstResponder()
+  }
+
+  func blurField() {
+    textField.resignFirstResponder()
+  }
+
+  func clearField() {
+    textField.text = ""
+    fireValueChange(rawValue: "", formatted: "", value: nil)
+  }
+
+  // MARK: - Formatter Configuration
+
+  func updateFormatter() {
+    // Resolve decimal places: explicit > currency default > 2.
+    if let explicit = propDecimalPlaces {
+      effectiveDecimalPlaces = explicit
+    } else if let currencyCode = propCurrency {
+      let probe = NumberFormatter()
+      probe.numberStyle = .currency
+      probe.currencyCode = currencyCode
+      effectiveDecimalPlaces = probe.maximumFractionDigits
+    } else {
+      effectiveDecimalPlaces = 2
+    }
+
+    let f = NumberFormatter()
+    f.roundingMode = .floor
+
+    if let localeId = propLocale {
+      f.locale = Locale(identifier: localeId)
+    } else {
+      f.locale = Locale(identifier: "en_US")
+    }
+
+    if let currencyCode = propCurrency {
+      f.numberStyle = .currency
+      f.currencyCode = currencyCode
+    } else {
+      f.numberStyle = .decimal
+    }
+
+    if let gs = propGroupingSeparator {
+      f.groupingSeparator = gs
+      f.currencyGroupingSeparator = gs
+    }
+
+    if let ds = propDecimalSeparator {
+      f.decimalSeparator = ds
+      f.currencyDecimalSeparator = ds
+    }
+
+    f.maximumFractionDigits = effectiveDecimalPlaces
+    f.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
+
+    formatter = f
+
+    // Re-apply the controlled value with the freshly-resolved formatter so that
+    // first-mount renders (`<NumberInput currency="EUR" locale="de-DE" value={1.5} />`)
+    // don't briefly paint with the default en_US formatter before the prop
+    // batch finishes.
+    applyExternalValue()
+  }
+
+  // MARK: - Controlled Mode
+
+  /// Stash the externally-provided value, then re-render. The actual paint is
+  /// deferred to `applyExternalValue` so it can run again from `updateFormatter`
+  /// after the rest of the prop batch has resolved.
+  func setExternalValue(_ value: Double?) {
+    propValue = value
+    hasPropValue = true
+    applyExternalValue()
+  }
+
+  /// Renders `propValue` into the text field. No-op while the field is focused
+  /// so we don't race with active typing (the parent typically echoes every
+  /// `onValueChange` back via `value={state}`, and mid-typing values like
+  /// "1." would otherwise be overwritten by the re-format of 1.0 → "1").
+  private func applyExternalValue() {
+    if !hasPropValue { return }
+    if textField.isFirstResponder { return }
+
+    formatter.minimumFractionDigits = isCentsMode ? effectiveDecimalPlaces : 0
+    formatter.maximumFractionDigits = effectiveDecimalPlaces
+
+    let formatted: String
+    if let v = propValue {
+      formatted = formatter.string(from: NSNumber(value: v)) ?? ""
+    } else {
+      formatted = ""
+    }
+
+    if textField.text != formatted {
+      textField.text = formatted
+      let end = textField.endOfDocument
+      textField.selectedTextRange = textField.textRange(from: end, to: end)
+    }
+  }
+
+  // MARK: - UITextFieldDelegate
+
+  func textField(
+    _ textField: UITextField,
+    shouldChangeCharactersIn range: NSRange,
+    replacementString string: String
+  ) -> Bool {
+    // Normalize user-typed `.` / `,` to the formatter's decimal separator.
+    // iOS decimal-pad follows the system locale, not the app's — so a de-DE
+    // NumberInput on an en-US device shows only "." on-screen; convert it.
+    let decSep = formatter.decimalSeparator ?? "."
+    var normalizedString = ""
+    for ch in string {
+      let s = String(ch)
+      if (s == "." || s == ",") && s != decSep {
+        normalizedString += decSep
+      } else {
+        normalizedString.append(ch)
+      }
+    }
+
+    let current = (textField.text ?? "") as NSString
+    let candidate = current.replacingCharacters(in: range, with: normalizedString)
+    let caret = range.location + (normalizedString as NSString).length
+
+    let result: NumberFormattingAlgorithm.Result
+    if isCentsMode {
+      result = NumberFormattingAlgorithm.applyCents(
+        text: candidate,
+        decimalPlaces: effectiveDecimalPlaces,
+        locale: propLocale,
+        currency: propCurrency,
+        groupingSeparator: propGroupingSeparator,
+        decimalSeparator: propDecimalSeparator,
+        min: minValue,
+        max: maxValue
+      )
+    } else {
+      result = NumberFormattingAlgorithm.apply(
+        text: candidate,
+        caretPosition: caret,
+        locale: propLocale,
+        currency: propCurrency,
+        groupingSeparator: propGroupingSeparator,
+        decimalSeparator: propDecimalSeparator,
+        decimalPlaces: propDecimalPlaces,
+        fixedDecimalPlaces: false,
+        min: minValue,
+        max: maxValue
+      )
+    }
+
+    if result.exceeded {
+      // Returning false leaves the existing text in place — the new keypress
+      // is silently rejected.
+      return false
+    }
+
+    textField.text = result.formattedText
+    if let pos = textField.position(from: textField.beginningOfDocument, offset: result.caretPosition) {
+      textField.selectedTextRange = textField.textRange(from: pos, to: pos)
+    }
+
+    let numericValue: Double?
+    if isCentsMode {
+      // applyCents returns a fixed-decimal string ("1.23"); parse to double.
+      numericValue = result.value.isEmpty ? nil : Double(result.value)
+    } else {
+      numericValue = result.value.isEmpty ? nil : Double(result.value)
+    }
+
+    fireValueChange(rawValue: result.value, formatted: result.formattedText, value: numericValue)
+    return false
+  }
+
+  // MARK: - Event Dispatch
+
+  private func fireValueChange(rawValue: String, formatted: String, value: Double?) {
+    let jsValue: Any = value != nil ? value! : NSNull()
+    onValueChange([
+      "formattedText": formatted,
+      "rawValue": rawValue,
+      "value": jsValue,
+      "complete": isComplete(value: value)
+    ])
+  }
+
+  private func isComplete(value: Double?) -> Bool {
+    if let v = value {
+      let aboveMin = minValue == nil || v >= minValue!
+      let belowMax = maxValue == nil || v <= maxValue!
+      return aboveMin && belowMax
+    }
+    return minValue == nil || minValue! <= 0
+  }
+}

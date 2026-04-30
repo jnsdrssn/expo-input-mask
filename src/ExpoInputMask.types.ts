@@ -47,3 +47,79 @@ export interface MaskedTextInputProps extends TextInputProps {
     complete: boolean;
   }) => void;
 }
+
+export interface ApplyNumberFormatOptions {
+  text: string;
+  caretPosition: number;
+  caretGravity?: 'forward' | 'backward';
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  fixedDecimalPlaces?: boolean;
+  min?: number;
+  max?: number;
+}
+
+export interface NumberFormatResult {
+  formattedText: string;
+  value: string;
+  complete: boolean;
+  caretPosition: number;
+}
+
+export interface NumberValueResult {
+  value: number | null;
+  formattedText: string;
+  rawValue: string;
+  complete: boolean;
+}
+
+export interface NumberInputProps extends Omit<
+  TextInputProps,
+  'value' | 'onChangeText' | 'onChange' | 'keyboardType'
+> {
+  // Number formatting
+  locale?: string;
+  currency?: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  /** Max fractional digits. Defaults to the currency's default if `currency` is set, otherwise 2. */
+  decimalPlaces?: number;
+  /**
+   * `'decimal'` (default): user types digits and a decimal separator; display matches input.
+   * `'cents'`: append-only digit mode — the last `decimalPlaces` digits are always the fraction
+   * (typing `123` with `decimalPlaces: 2` → `1.23`). The decimal separator is ignored on input.
+   */
+  mode?: 'decimal' | 'cents';
+
+  // Constraints
+  min?: number;
+  max?: number;
+
+  /**
+   * Controlled value. Pass `null` to clear; passing `undefined` (or omitting
+   * the prop) leaves whatever the field currently shows untouched. Updates
+   * while the field is focused are ignored to avoid races with active typing.
+   */
+  value?: number | null;
+
+  /**
+   * Fires with the **display-formatted** text on every change (e.g. `"1,234.56"`,
+   * `"1.234,56 €"`). Matches the `<TextInput />` `onChangeText` convention.
+   * For the dot-canonical raw string or the parsed `number`, use `onValueChange`.
+   */
+  onChangeText?: (formattedText: string) => void;
+  /** Fires on every change with parsed number, formatted text, dot-canonical raw string, and min/max completeness. */
+  onValueChange?: (result: NumberValueResult) => void;
+
+  /** Narrowed for numeric input. Other `TextInput` keyboard types don't make sense here. */
+  keyboardType?: 'decimal-pad' | 'numeric' | 'number-pad';
+}
+
+export interface NumberInputRef {
+  focus: () => void;
+  blur: () => void;
+  clear: () => void;
+}
