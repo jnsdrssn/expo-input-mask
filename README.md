@@ -151,6 +151,7 @@ const ref = useRef<NumberInputRef>(null);
 - Integer digits are capped at 15 (Double exact-integer precision). Excess input is silently dropped.
 - Typing a leading `.` (or `,` in de-DE) auto-prepends `0`: `.5` renders as `0.5`.
 - A trailing decimal separator is preserved with the currency suffix in place: typing `123,` in de-DE EUR renders as `123, €`.
+- An empty field is reported as `complete: true` when `min` is omitted or `≤ 0` (i.e. zero satisfies the bound). With `min > 0`, an empty field is `complete: false`.
 
 ### `applyNumberFormat(options)`
 
@@ -176,7 +177,6 @@ Full options:
 applyNumberFormat({
   text: string,
   caretPosition: number,
-  caretGravity?: 'forward' | 'backward', // default: 'forward'
   locale?: string,
   currency?: string,
   groupingSeparator?: string,
