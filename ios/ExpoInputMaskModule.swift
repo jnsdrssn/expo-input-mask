@@ -147,7 +147,8 @@ public class ExpoInputMaskModule: Module {
         "value": r.value,
         "complete": r.complete,
         "caretPosition": r.caretPosition,
-        "exceeded": r.exceeded
+        "exceeded": r.exceeded,
+        "minorUnits": r.minorUnits.map { NSNumber(value: $0) } ?? NSNull()
       ]
     }
 

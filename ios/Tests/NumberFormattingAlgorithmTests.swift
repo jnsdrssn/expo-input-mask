@@ -269,4 +269,93 @@ final class NumberFormattingAlgorithmTests: XCTestCase {
     XCTAssertEqual(normalized, "123,45 €")
     XCTAssertEqual(r.value, "123.45")
   }
+
+  // MARK: - minorUnits
+
+  func test_minorUnits_decimalWithFullFraction_usd() {
+    // "$12.34" → 1234 cents
+    let r = NumberFormattingAlgorithm.apply(text: "12.34", caretPosition: 5, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.minorUnits, 1234)
+  }
+
+  func test_minorUnits_decimalWithPartialFractionPadsWithZeros() {
+    // "$1.5" with decimalPlaces=2 → 150 cents (pad "5" → "50")
+    let r = NumberFormattingAlgorithm.apply(text: "1.5", caretPosition: 3, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.minorUnits, 150)
+  }
+
+  func test_minorUnits_integerEntryPadsWithZeros() {
+    // "$1234" with decimalPlaces=2 → 123400 cents (no fraction → "00")
+    let r = NumberFormattingAlgorithm.apply(text: "1234", caretPosition: 4, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.minorUnits, 123400)
+  }
+
+  func test_minorUnits_jpyZeroFractionCollapsesToInteger() {
+    // ¥1,234 with decimalPlaces=0 → 1234 (no padding, no scaling)
+    let r = NumberFormattingAlgorithm.apply(text: "1234", caretPosition: 4, locale: "en_US", currency: "JPY")
+    XCTAssertEqual(r.minorUnits, 1234)
+  }
+
+  func test_minorUnits_bhdThreeFractionPadsToThousandths() {
+    let r = NumberFormattingAlgorithm.apply(text: "1.234", caretPosition: 5, locale: "en_US", currency: "BHD")
+    XCTAssertEqual(r.minorUnits, 1234)
+  }
+
+  func test_minorUnits_bhdPartialFractionPadsToThousandths() {
+    let r = NumberFormattingAlgorithm.apply(text: "1.2", caretPosition: 3, locale: "en_US", currency: "BHD")
+    XCTAssertEqual(r.minorUnits, 1200)
+  }
+
+  func test_minorUnits_emptyInputIsNil() {
+    let r = NumberFormattingAlgorithm.apply(text: "", caretPosition: 0, locale: "en_US", currency: "USD")
+    XCTAssertNil(r.minorUnits)
+  }
+
+  func test_minorUnits_leadingDecimalSeparatorWithAutoPrependedZero() {
+    // ".5" rendered as "0.5" → 50 cents
+    let r = NumberFormattingAlgorithm.apply(text: ".5", caretPosition: 2, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.value, "0.5")
+    XCTAssertEqual(r.minorUnits, 50)
+  }
+
+  func test_minorUnits_maxExceededIsNil() {
+    let r = NumberFormattingAlgorithm.apply(text: "9999", caretPosition: 4, locale: "en_US", currency: "USD", max: 100.0)
+    XCTAssertTrue(r.exceeded)
+    XCTAssertNil(r.minorUnits)
+  }
+
+  func test_minorUnits_centsModeUsdOneDigit() {
+    // Cents mode: "1" → "$0.01" → 1 cent
+    let r = NumberFormattingAlgorithm.applyCents(text: "1", decimalPlaces: 2, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.minorUnits, 1)
+  }
+
+  func test_minorUnits_centsModeUsdThreeDigits() {
+    // Cents mode: "123" → "$1.23" → 123 cents
+    let r = NumberFormattingAlgorithm.applyCents(text: "123", decimalPlaces: 2, locale: "en_US", currency: "USD")
+    XCTAssertEqual(r.minorUnits, 123)
+  }
+
+  func test_minorUnits_centsModeJpyZeroFraction() {
+    let r = NumberFormattingAlgorithm.applyCents(text: "1234", decimalPlaces: 0, locale: "en_US", currency: "JPY")
+    XCTAssertEqual(r.minorUnits, 1234)
+  }
+
+  func test_minorUnits_centsModeEmptyIsNil() {
+    let r = NumberFormattingAlgorithm.applyCents(text: "", decimalPlaces: 2, locale: "en_US", currency: "USD")
+    XCTAssertNil(r.minorUnits)
+  }
+
+  func test_minorUnits_centsModeMaxExceededIsNil() {
+    // 99999 cents = $999.99, max = $100 → exceeded
+    let r = NumberFormattingAlgorithm.applyCents(text: "99999", decimalPlaces: 2, locale: "en_US", currency: "USD", max: 100.0)
+    XCTAssertTrue(r.exceeded)
+    XCTAssertNil(r.minorUnits)
+  }
+
+  func test_minorUnits_respectsExplicitDecimalPlaces() {
+    // Explicit decimalPlaces=4, "0.0001" → 1 minor unit
+    let r = NumberFormattingAlgorithm.apply(text: "0.0001", caretPosition: 6, locale: "en_US", decimalPlaces: 4)
+    XCTAssertEqual(r.minorUnits, 1)
+  }
 }

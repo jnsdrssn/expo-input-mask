@@ -121,7 +121,7 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     lastFormattedText = ""
     lastCaret = 0
     updatingText = false
-    fireValueChange("", "", null)
+    fireValueChange("", "", null, null)
   }
 
   // MARK: - Formatter Configuration
@@ -254,7 +254,7 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
     setTextPreservingCaret(result.formattedText, result.caretPosition)
     val numericValue: Double? = if (result.value.isEmpty()) null else result.value.toDoubleOrNull()
-    fireValueChange(result.value, result.formattedText, numericValue)
+    fireValueChange(result.value, result.formattedText, numericValue, result.minorUnits)
   }
 
   private fun normalizeInsertion(candidate: String): String {
@@ -292,11 +292,12 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
   // MARK: - Event Dispatch
 
-  private fun fireValueChange(rawValue: String, formatted: String, value: Double?) {
+  private fun fireValueChange(rawValue: String, formatted: String, value: Double?, minorUnits: Long?) {
     val payload = mutableMapOf<String, Any?>(
       "formattedText" to formatted,
       "rawValue" to rawValue,
       "value" to value,
+      "minorUnits" to minorUnits,
       "complete" to isComplete(value)
     )
     onValueChange(payload)

@@ -132,7 +132,8 @@ class ExpoInputMaskModule : Module() {
         "value" to r.value,
         "complete" to r.complete,
         "caretPosition" to r.caretPosition,
-        "exceeded" to r.exceeded
+        "exceeded" to r.exceeded,
+        "minorUnits" to r.minorUnits
       )
     }
 

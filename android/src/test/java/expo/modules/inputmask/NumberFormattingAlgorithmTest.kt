@@ -522,4 +522,176 @@ class NumberFormattingAlgorithmTest {
     assertEquals("123,45 €", normalized)
     assertEquals("123.45", r.value)
   }
+
+  // MARK: - minorUnits
+
+  @Test
+  fun `minorUnits decimal with full fraction usd`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "12.34",
+      caretPosition = 5,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(1234L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits decimal with partial fraction pads with zeros`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "1.5",
+      caretPosition = 3,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(150L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits integer entry pads with zeros`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "1234",
+      caretPosition = 4,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(123400L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits jpy zero-fraction collapses to integer`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "1234",
+      caretPosition = 4,
+      locale = "en-US",
+      currency = "JPY"
+    )
+    assertEquals(1234L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits bhd three-fraction pads to thousandths`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "1.234",
+      caretPosition = 5,
+      locale = "en-US",
+      currency = "BHD"
+    )
+    assertEquals(1234L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits bhd partial fraction pads to thousandths`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "1.2",
+      caretPosition = 3,
+      locale = "en-US",
+      currency = "BHD"
+    )
+    assertEquals(1200L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits empty input is null`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "",
+      caretPosition = 0,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(null, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits leading decimal separator with auto-prepended zero`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = ".5",
+      caretPosition = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals("0.5", r.value)
+    assertEquals(50L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits max-exceeded is null`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "9999",
+      caretPosition = 4,
+      locale = "en-US",
+      currency = "USD",
+      max = 100.0
+    )
+    assertTrue(r.exceeded)
+    assertEquals(null, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits cents mode usd one digit`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(1L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits cents mode usd three digits`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "123",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(123L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits cents mode jpy zero fraction`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "1234",
+      decimalPlaces = 0,
+      locale = "en-US",
+      currency = "JPY"
+    )
+    assertEquals(1234L, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits cents mode empty is null`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD"
+    )
+    assertEquals(null, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits cents mode max-exceeded is null`() {
+    val r = NumberFormattingAlgorithm.applyCents(
+      text = "99999",
+      decimalPlaces = 2,
+      locale = "en-US",
+      currency = "USD",
+      max = 100.0
+    )
+    assertTrue(r.exceeded)
+    assertEquals(null, r.minorUnits)
+  }
+
+  @Test
+  fun `minorUnits respects explicit decimalPlaces`() {
+    val r = NumberFormattingAlgorithm.apply(
+      text = "0.0001",
+      caretPosition = 6,
+      locale = "en-US",
+      decimalPlaces = 4
+    )
+    assertEquals(1L, r.minorUnits)
+  }
 }

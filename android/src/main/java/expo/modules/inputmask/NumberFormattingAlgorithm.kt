@@ -22,10 +22,36 @@ object NumberFormattingAlgorithm {
     val value: String,
     val complete: Boolean,
     val caretPosition: Int,
-    val exceeded: Boolean
+    val exceeded: Boolean,
+    /**
+     * Value expressed as an integer in the smallest unit (e.g. cents for
+     * USD/EUR, ¥ for JPY, fils for BHD). Computed from `value` by string
+     * concatenation — exact, no floating-point. `null` when `value` is empty.
+     * Useful for payment APIs (Stripe, Adyen, ...) that take amounts as
+     * integers in minor units.
+     */
+    val minorUnits: Long?
   )
 
   private const val INT_DIGIT_CAP = 15
+
+  /**
+   * Compute integer minor-units from a dot-canonical raw value and a
+   * decimal-places scale, by string concatenation. `"1234.56" / 2 → 123456`,
+   * `"1.5" / 2 → 150`, `"1234" / 2 → 123400`, `"" / * → null`.
+   */
+  private fun computeMinorUnits(rawValue: String, decimalPlaces: Int): Long? {
+    if (rawValue.isEmpty()) return null
+    val parts = rawValue.split(".", limit = 2)
+    val intPart = parts[0]
+    var fracPart = if (parts.size > 1) parts[1] else ""
+    fracPart = when {
+      fracPart.length < decimalPlaces -> fracPart.padEnd(decimalPlaces, '0')
+      fracPart.length > decimalPlaces -> fracPart.substring(0, decimalPlaces)
+      else -> fracPart
+    }
+    return (intPart + fracPart).toLongOrNull()
+  }
 
   fun apply(
     text: String,
@@ -101,7 +127,8 @@ object NumberFormattingAlgorithm {
         value = "",
         complete = false,
         caretPosition = 0,
-        exceeded = true
+        exceeded = true,
+        minorUnits = null
       )
     }
 
@@ -174,7 +201,8 @@ object NumberFormattingAlgorithm {
       value = digits,
       complete = complete,
       caretPosition = newCaretPosition,
-      exceeded = false
+      exceeded = false,
+      minorUnits = computeMinorUnits(digits, maxFractionDigits)
     )
   }
 
@@ -212,7 +240,8 @@ object NumberFormattingAlgorithm {
         value = "",
         complete = false,
         caretPosition = 0,
-        exceeded = true
+        exceeded = true,
+        minorUnits = null
       )
     }
 
@@ -259,7 +288,8 @@ object NumberFormattingAlgorithm {
       value = rawValue,
       complete = complete,
       caretPosition = formattedText.length,
-      exceeded = false
+      exceeded = false,
+      minorUnits = computeMinorUnits(rawValue, decimalPlaces)
     )
   }
 }

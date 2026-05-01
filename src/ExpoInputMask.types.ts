@@ -66,12 +66,25 @@ export interface NumberFormatResult {
   value: string;
   complete: boolean;
   caretPosition: number;
+  /**
+   * Value expressed as an integer in the smallest unit (cents for USD/EUR,
+   * ¥ for JPY, fils for BHD). Computed natively by string concatenation —
+   * exact, no floating-point. `null` when `value` is empty.
+   */
+  minorUnits: number | null;
 }
 
 export interface NumberValueResult {
   value: number | null;
   formattedText: string;
   rawValue: string;
+  /**
+   * Value expressed as an integer in the smallest unit (cents for USD/EUR,
+   * ¥ for JPY, fils for BHD). Computed natively by string concatenation —
+   * exact, no floating-point. `null` when the field is empty. Useful for
+   * payment APIs (Stripe, Adyen, ...) that take amounts in minor units.
+   */
+  minorUnits: number | null;
   complete: boolean;
 }
 

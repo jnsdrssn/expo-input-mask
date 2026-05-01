@@ -14,12 +14,34 @@ enum NumberFormattingAlgorithm {
     let complete: Bool
     let caretPosition: Int
     let exceeded: Bool
+    /// Value expressed as an integer in the smallest unit (e.g. cents for
+    /// USD/EUR, ¥ for JPY, fils for BHD). Computed from `value` by string
+    /// concatenation — exact, no floating-point. `nil` when `value` is empty.
+    /// Useful for payment APIs (Stripe, Adyen, ...) that take amounts as
+    /// integers in minor units.
+    let minorUnits: Int64?
   }
 
   /// Double is exactly representable for integers up to 2^53 ≈ 9×10^15.
   /// 15 digits is the largest width that is always exactly representable
   /// regardless of the digit values.
   private static let intDigitCap = 15
+
+  /// Compute integer minor-units from a dot-canonical raw value and a
+  /// decimal-places scale, by string concatenation. `"1234.56" / 2 → 123456`,
+  /// `"1.5" / 2 → 150`, `"1234" / 2 → 123400`, `"" / * → nil`.
+  private static func computeMinorUnits(rawValue: String, decimalPlaces: Int) -> Int64? {
+    if rawValue.isEmpty { return nil }
+    let parts = rawValue.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+    let intPart = String(parts[0])
+    var fracPart = parts.count > 1 ? String(parts[1]) : ""
+    if fracPart.count < decimalPlaces {
+      fracPart += String(repeating: "0", count: decimalPlaces - fracPart.count)
+    } else if fracPart.count > decimalPlaces {
+      fracPart = String(fracPart.prefix(decimalPlaces))
+    }
+    return Int64(intPart + fracPart)
+  }
 
   static func apply(
     text: String,
@@ -101,7 +123,8 @@ enum NumberFormattingAlgorithm {
         value: "",
         complete: false,
         caretPosition: 0,
-        exceeded: true
+        exceeded: true,
+        minorUnits: nil
       )
     }
 
@@ -177,7 +200,8 @@ enum NumberFormattingAlgorithm {
       value: digits,
       complete: complete,
       caretPosition: newCaretPosition,
-      exceeded: false
+      exceeded: false,
+      minorUnits: computeMinorUnits(rawValue: digits, decimalPlaces: maxFractionDigits)
     )
   }
 
@@ -214,7 +238,8 @@ enum NumberFormattingAlgorithm {
         value: "",
         complete: false,
         caretPosition: 0,
-        exceeded: true
+        exceeded: true,
+        minorUnits: nil
       )
     }
 
@@ -272,7 +297,8 @@ enum NumberFormattingAlgorithm {
       value: rawValue,
       complete: complete,
       caretPosition: formattedText.count,
-      exceeded: false
+      exceeded: false,
+      minorUnits: computeMinorUnits(rawValue: rawValue, decimalPlaces: decimalPlaces)
     )
   }
 }

@@ -122,7 +122,7 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
 
   func clearField() {
     textField.text = ""
-    fireValueChange(rawValue: "", formatted: "", value: nil)
+    fireValueChange(rawValue: "", formatted: "", value: nil, minorUnits: nil)
   }
 
   // MARK: - Formatter Configuration
@@ -281,18 +281,20 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     }
 
     let numericValue: Double? = result.value.isEmpty ? nil : Double(result.value)
-    fireValueChange(rawValue: result.value, formatted: result.formattedText, value: numericValue)
+    fireValueChange(rawValue: result.value, formatted: result.formattedText, value: numericValue, minorUnits: result.minorUnits)
     return false
   }
 
   // MARK: - Event Dispatch
 
-  private func fireValueChange(rawValue: String, formatted: String, value: Double?) {
+  private func fireValueChange(rawValue: String, formatted: String, value: Double?, minorUnits: Int64?) {
     let jsValue: Any = value != nil ? value! : NSNull()
+    let jsMinor: Any = minorUnits.map { NSNumber(value: $0) } ?? NSNull()
     onValueChange([
       "formattedText": formatted,
       "rawValue": rawValue,
       "value": jsValue,
+      "minorUnits": jsMinor,
       "complete": isComplete(value: value)
     ])
   }
