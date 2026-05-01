@@ -5,7 +5,6 @@ import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.text.method.DigitsKeyListener
-import android.util.TypedValue
 import android.widget.EditText
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
@@ -21,6 +20,10 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
   val onFocusEvent by EventDispatcher()
   val onBlurEvent by EventDispatcher()
 
+  // Plain EditText — no opinionated padding. Consumers style via
+  // `<NumberInput style={...} />` and any wrapping View as they would a
+  // regular `<TextInput />`. `background = null` removes the platform
+  // underline drawable so the visual matches iOS UITextField.
   val editText: EditText = EditText(context).apply {
     layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
     inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
@@ -28,10 +31,6 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     // alone would reject whichever one isn't the device locale's decimal separator.
     keyListener = DigitsKeyListener.getInstance("0123456789.,")
     background = null
-    val hPad = TypedValue.applyDimension(
-      TypedValue.COMPLEX_UNIT_DIP, 12f, resources.displayMetrics
-    ).toInt()
-    setPadding(hPad, paddingTop, hPad, paddingBottom)
   }
 
   var minValue: Double? = null

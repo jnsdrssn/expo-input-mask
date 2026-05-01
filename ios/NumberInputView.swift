@@ -1,22 +1,6 @@
 import ExpoModulesCore
 import UIKit
 
-private class PaddedTextField: UITextField {
-  var contentPadding = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
-
-  override func textRect(forBounds bounds: CGRect) -> CGRect {
-    return bounds.inset(by: contentPadding)
-  }
-
-  override func editingRect(forBounds bounds: CGRect) -> CGRect {
-    return bounds.inset(by: contentPadding)
-  }
-
-  override func placeholderRect(forBounds bounds: CGRect) -> CGRect {
-    return bounds.inset(by: contentPadding)
-  }
-}
-
 class NumberInputView: ExpoView, UITextFieldDelegate {
   // MARK: - Event Dispatchers
 
@@ -26,7 +10,10 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
 
   // MARK: - Subview
 
-  private let textField = PaddedTextField()
+  // Plain UITextField — no opinionated padding. Consumers style via
+  // `<NumberInput style={...} />` and any wrapping View as they would a
+  // regular `<TextInput />`.
+  private let textField = UITextField()
 
   // MARK: - Constraints
 
