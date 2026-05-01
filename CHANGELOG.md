@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+### Fixed
+
+- `NumberInput` no longer applies opinionated 12pt/dp horizontal padding inside the native text field. Consumers now control all spacing via `<NumberInput style={...} />` and any wrapping `View`, matching `<TextInput />`'s behavior. If you relied on the implicit padding, add `paddingHorizontal: 12` (or your preferred value) to the component's style.
+
 ## 0.2.0
 
 Breaking redesign of `NumberInput`. The component is now a native view (Swift on iOS, Kotlin on Android) instead of a JS wrapper around `<TextInput />`. All formatting and caret management happen natively for parity and to remove cross-thread races.
