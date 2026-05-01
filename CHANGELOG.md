@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+### Added
+
+- `NumberValueResult.minorUnits` and `NumberFormatResult.minorUnits` — the value as an integer in the smallest unit (cents for USD/EUR, ¥ for JPY, fils for BHD). Computed natively from the dot-canonical raw value via string concatenation, so no floating-point error. Useful for posting to payment APIs (Stripe, Adyen, Braintree) that take amounts in minor units. `null` when the field is empty or the input was rejected for exceeding `max`.
+
 ## 0.2.1
 
 ### Fixed

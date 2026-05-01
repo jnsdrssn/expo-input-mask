@@ -56,10 +56,11 @@ function PriceInput() {
       placeholder="$0.00"
       value={value}
       onValueChange={(r) => setValue(r.value)}
-      // r.value     → parsed number (or null when empty)
+      // r.value       → parsed number (or null when empty)
       // r.formattedText → display text (e.g. "$1,234.56")
-      // r.rawValue  → dot-canonical string (e.g. "1234.56")
-      // r.complete  → true when within min/max
+      // r.rawValue    → dot-canonical string (e.g. "1234.56")
+      // r.minorUnits  → integer in smallest unit (e.g. 123456 cents); useful for Stripe etc.
+      // r.complete    → true when within min/max
     />
   );
 }
@@ -132,7 +133,7 @@ A native numeric input with locale-aware grouping/decimal separators, optional c
 | `max` | `number` | — | Upper bound. Keystrokes that would exceed it are rejected |
 | `value` | `number \| null` | — | Controlled value. `null` clears; `undefined` (or omitted) leaves the field untouched. Updates while focused are ignored to avoid races with active typing |
 | `onChangeText` | `(formatted: string) => void` | — | Fires with the **display-formatted** text (matches `<TextInput />`). For raw / parsed forms, use `onValueChange` |
-| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, complete }` on every change |
+| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, minorUnits, complete }` on every change |
 | `keyboardType` | `'decimal-pad' \| 'numeric' \| 'number-pad'` | `'decimal-pad'` | Narrowed for numeric input |
 
 The component also exposes an imperative ref:
@@ -152,6 +153,7 @@ const ref = useRef<NumberInputRef>(null);
 - Typing a leading `.` (or `,` in de-DE) auto-prepends `0`: `.5` renders as `0.5`.
 - A trailing decimal separator is preserved with the currency suffix in place: typing `123,` in de-DE EUR renders as `123, €`.
 - An empty field is reported as `complete: true` when `min` is omitted or `≤ 0` (i.e. zero satisfies the bound). With `min > 0`, an empty field is `complete: false`.
+- `minorUnits` is the integer value in the smallest currency unit (cents for USD/EUR, ¥ for JPY, fils for BHD). Computed natively by string concatenation — exact, no floating-point. Pass it directly to payment APIs like Stripe (`amount` field) or Adyen, which take amounts as integers in minor units.
 
 ### `applyNumberFormat(options)`
 
