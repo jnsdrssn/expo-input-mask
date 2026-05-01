@@ -3,9 +3,10 @@
 Native input masking and locale-aware number/currency formatting for Expo and React Native.
 
 - **`<MaskedTextInput />`** — fixed-pattern masking (phone, date, credit card, ...) powered by RedMadRobot's [input-mask-ios](https://github.com/RedMadRobot/input-mask-ios) and [input-mask-android](https://github.com/RedMadRobot/input-mask-android).
-- **`<NumberInput />`** — locale-aware number and currency formatting backed by `NumberFormatter` (iOS) / `DecimalFormat` (Android), with append-only "cents" mode and `min`/`max` constraints.
+- **`<NumberInput />`** — locale-aware decimal number formatting with `min`/`max` constraints.
+- **`<CurrencyInput />`** — locale-aware currency formatting with `min`/`max`, append-only "cents" mode, and integer minor-units output for payment APIs (Stripe, Adyen, ...). Backed by `NumberFormatter` (iOS) / `DecimalFormat` (Android).
 
-Both components are native views (Swift/Kotlin) on the Expo Modules API — no bridge overhead, formatting and caret management run on the UI thread.
+All three components are native views (Swift/Kotlin) on the Expo Modules API — no bridge overhead, formatting and caret management run on the UI thread.
 
 **iOS and Android only.** Requires Expo SDK 52+.
 
@@ -41,16 +42,40 @@ function PhoneInput() {
 }
 ```
 
-### Number / currency
+### Plain number
 
 ```tsx
 import { NumberInput } from 'expo-input-mask';
+
+function QuantityInput() {
+  const [value, setValue] = useState<number | null>(null);
+
+  return (
+    <NumberInput
+      locale="en-US"
+      decimalPlaces={4}
+      placeholder="0.0000"
+      value={value}
+      onValueChange={(r) => setValue(r.value)}
+      // r.value       → parsed number (or null when empty)
+      // r.formattedText → display text (e.g. "1,234.5678")
+      // r.rawValue    → dot-canonical string (e.g. "1234.5678")
+      // r.complete    → true when within min/max
+    />
+  );
+}
+```
+
+### Currency
+
+```tsx
+import { CurrencyInput } from 'expo-input-mask';
 
 function PriceInput() {
   const [value, setValue] = useState<number | null>(null);
 
   return (
-    <NumberInput
+    <CurrencyInput
       currency="USD"
       locale="en-US"
       placeholder="$0.00"
@@ -59,7 +84,7 @@ function PriceInput() {
       // r.value       → parsed number (or null when empty)
       // r.formattedText → display text (e.g. "$1,234.56")
       // r.rawValue    → dot-canonical string (e.g. "1234.56")
-      // r.minorUnits  → integer in smallest unit (e.g. 123456 cents); useful for Stripe etc.
+      // r.minorUnits  → integer in smallest unit (e.g. 123456 cents); pass to Stripe / Adyen
       // r.complete    → true when within min/max
     />
   );
@@ -119,24 +144,22 @@ applyMask({
 
 ### `<NumberInput />`
 
-A native numeric input with locale-aware grouping/decimal separators, optional currency formatting, and `min`/`max` constraints. Inherits `View` props (style, layout, accessibility) but **not** the full `TextInput` surface — `value`, `onChangeText`, `onChange`, and `keyboardType` are re-declared below.
+Plain locale-aware decimal input. Use `<CurrencyInput />` instead if you need currency formatting. Inherits `View` props (style, layout, accessibility); `value`, `onChangeText`, `onChange`, and `keyboardType` are re-declared below.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `locale` | `string` | device locale | BCP-47 locale tag, e.g. `'en-US'`, `'de-DE'` |
-| `currency` | `string` | — | ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`. Drives prefix/suffix and default fraction digits |
-| `decimalPlaces` | `number` | currency default, else `2` | Max fractional digits |
+| `decimalPlaces` | `number` | `2` | Max fractional digits |
 | `groupingSeparator` | `string` | locale default | Override the thousands separator |
 | `decimalSeparator` | `string` | locale default | Override the decimal separator |
-| `mode` | `'decimal' \| 'cents'` | `'decimal'` | `'decimal'`: free-form digit + separator entry. `'cents'`: append-only — typing `123` with `decimalPlaces: 2` renders as `1.23` |
 | `min` | `number` | — | Lower bound. Affects only `complete` flag |
 | `max` | `number` | — | Upper bound. Keystrokes that would exceed it are rejected |
 | `value` | `number \| null` | — | Controlled value. `null` clears; `undefined` (or omitted) leaves the field untouched. Updates while focused are ignored to avoid races with active typing |
 | `onChangeText` | `(formatted: string) => void` | — | Fires with the **display-formatted** text (matches `<TextInput />`). For raw / parsed forms, use `onValueChange` |
-| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, minorUnits, complete }` on every change |
+| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, complete }` on every change |
 | `keyboardType` | `'decimal-pad' \| 'numeric' \| 'number-pad'` | `'decimal-pad'` | Narrowed for numeric input |
 
-The component also exposes an imperative ref:
+Imperative ref:
 
 ```tsx
 import { NumberInput, type NumberInputRef } from 'expo-input-mask';
@@ -151,26 +174,53 @@ const ref = useRef<NumberInputRef>(null);
 
 - Integer digits are capped at 15 (Double exact-integer precision). Excess input is silently dropped.
 - Typing a leading `.` (or `,` in de-DE) auto-prepends `0`: `.5` renders as `0.5`.
-- A trailing decimal separator is preserved with the currency suffix in place: typing `123,` in de-DE EUR renders as `123, €`.
 - An empty field is reported as `complete: true` when `min` is omitted or `≤ 0` (i.e. zero satisfies the bound). With `min > 0`, an empty field is `complete: false`.
+
+### `<CurrencyInput />`
+
+Locale + currency formatting, with `min`/`max`, optional cents-mode entry, and integer minor-units output for payment APIs. Inherits everything `<NumberInput />` accepts plus `currency` (required) and `mode`.
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `currency` | `string` | **required** | ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`, `'BHD'`. Drives prefix/suffix and default fraction digits |
+| `mode` | `'decimal' \| 'cents'` | `'decimal'` | `'decimal'`: free-form digit + separator entry. `'cents'`: append-only — typing `123` with `decimalPlaces: 2` renders as `1.23` |
+| `decimalPlaces` | `number` | currency default | Override the currency's default fraction digits |
+| `locale`, `groupingSeparator`, `decimalSeparator`, `min`, `max`, `value`, `onChangeText`, `keyboardType` | | | Same as `<NumberInput />` |
+| `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, minorUnits, complete }`. **The extra `minorUnits` is the only payload difference from `<NumberInput />`.** |
+
+**Notes** (in addition to all `<NumberInput />` notes)
+
+- A trailing decimal separator is preserved with the currency suffix in place: typing `123,` in de-DE EUR renders as `123, €`.
 - `minorUnits` is the integer value in the smallest currency unit (cents for USD/EUR, ¥ for JPY, fils for BHD). Computed natively by string concatenation — exact, no floating-point. Pass it directly to payment APIs like Stripe (`amount` field) or Adyen, which take amounts as integers in minor units.
 
-### `applyNumberFormat(options)`
+### `applyNumberFormat(options)` and `applyCurrencyFormat(options)`
 
-Standalone formatter for one-off use, mirroring `applyMask`. Useful when you need to render a number in a row, label, or non-input context.
+Standalone formatters for one-off use, mirroring `applyMask`. `applyNumberFormat` is for plain decimals; `applyCurrencyFormat` requires a currency and additionally returns `minorUnits`.
 
 ```ts
-import { applyNumberFormat } from 'expo-input-mask';
+import { applyNumberFormat, applyCurrencyFormat } from 'expo-input-mask';
 
-const result = applyNumberFormat({
+// Plain decimal, no currency:
+const a = applyNumberFormat({
+  text: '1234.56',
+  caretPosition: 7,
+  locale: 'de-DE',
+});
+// a.formattedText === '1.234,56'
+// a.value === '1234.56'
+// a.complete === true
+
+// Currency:
+const b = applyCurrencyFormat({
   text: '1234.56',
   caretPosition: 7,
   locale: 'de-DE',
   currency: 'EUR',
 });
-// result.formattedText === '1.234,56 €'
-// result.value === '1234.56'   // dot-canonical
-// result.complete === true
+// b.formattedText === '1.234,56 €'
+// b.value === '1234.56'
+// b.minorUnits === 123456
+// b.complete === true
 ```
 
 Full options:
@@ -180,13 +230,17 @@ applyNumberFormat({
   text: string,
   caretPosition: number,
   locale?: string,
-  currency?: string,
   groupingSeparator?: string,
   decimalSeparator?: string,
   decimalPlaces?: number,
   fixedDecimalPlaces?: boolean, // pad with trailing zeros
   min?: number,
   max?: number,
+})
+
+applyCurrencyFormat({
+  // all of applyNumberFormat's options plus:
+  currency: string, // required
 })
 ```
 

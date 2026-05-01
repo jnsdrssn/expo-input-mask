@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0
+
+Splits `<NumberInput />` into two focused components. `<NumberInput />` is now strictly a non-currency numeric input; `<CurrencyInput />` is the new currency-formatted variant with required `currency` and minor-units payload. The native primitive is unchanged — both JS components route to the same view; the split is type-level.
+
+### Breaking changes
+
+- **`<NumberInput />` no longer accepts `currency` or `mode`.** Use `<CurrencyInput />` for currency formatting.
+- **`NumberValueResult` no longer includes `minorUnits`.** It only ships on `CurrencyValueResult` (the `<CurrencyInput />` payload).
+- **`applyNumberFormat()` no longer accepts `currency`** and its return type (`NumberFormatResult`) no longer includes `minorUnits`. Use `applyCurrencyFormat()` for currency formatting.
+- **Migration:** if you used `<NumberInput currency="USD" />`, change the import to `<CurrencyInput currency="USD" />` and the result type from `NumberValueResult` to `CurrencyValueResult`. Same for `applyNumberFormat({ currency: 'USD', ... })` → `applyCurrencyFormat({ currency: 'USD', ... })`.
+
+### Added
+
+- **`<CurrencyInput />`** component. Required `currency: string`. Supports `mode: 'decimal' | 'cents'`. Emits `CurrencyValueResult` (extends `NumberValueResult` with `minorUnits: number | null`). Same imperative ref shape (`focus()` / `blur()` / `clear()`) as `<NumberInput />`.
+- **`applyCurrencyFormat(options)`** — required `currency`, returns `CurrencyFormatResult` (with `minorUnits`).
+- New types exported: `CurrencyInputProps`, `CurrencyValueResult`, `CurrencyFormatResult`, `ApplyCurrencyFormatOptions`.
+
 ## 0.2.2
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "expo-input-mask",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Native input masking for Expo — wraps RedMadRobot's input-mask libraries for iOS and Android",
   "main": "build/index.js",
   "types": "build/index.d.ts",
