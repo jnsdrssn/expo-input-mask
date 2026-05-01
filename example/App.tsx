@@ -93,19 +93,21 @@ function NumberDemoInput({
       <Text style={styles.label}>{label}</Text>
       {currency && <Text style={styles.maskLabel}>Currency: {currency}</Text>}
       {locale && <Text style={styles.maskLabel}>Locale: {locale}</Text>}
-      <NumberInput
-        locale={locale}
-        currency={currency}
-        groupingSeparator={groupingSeparator}
-        decimalSeparator={decimalSeparator}
-        decimalPlaces={decimalPlaces}
-        mode={mode}
-        min={min}
-        max={max}
-        placeholder={placeholder}
-        style={[styles.input, { height: 44 }]}
-        onValueChange={setResult}
-      />
+      <View style={styles.numberInputBox}>
+        <NumberInput
+          locale={locale}
+          currency={currency}
+          groupingSeparator={groupingSeparator}
+          decimalSeparator={decimalSeparator}
+          decimalPlaces={decimalPlaces}
+          mode={mode}
+          min={min}
+          max={max}
+          placeholder={placeholder}
+          style={styles.numberInputField}
+          onValueChange={setResult}
+        />
+      </View>
       <Text style={styles.info}>Formatted: {result.formattedText}</Text>
       <Text style={styles.info}>Raw: {result.rawValue}</Text>
       <Text style={styles.info}>Value: {result.value !== null ? result.value : 'null'}</Text>
@@ -220,14 +222,16 @@ function ControlledNumberDemo() {
     <View style={styles.card}>
       <Text style={styles.label}>Controlled (EUR / de-DE, initial 1234.56)</Text>
       <Text style={styles.maskLabel}>value = {value === null ? 'null' : value}</Text>
-      <NumberInput
-        currency="EUR"
-        locale="de-DE"
-        value={value}
-        placeholder="0,00 €"
-        style={[styles.input, { height: 44 }]}
-        onValueChange={(r) => setValue(r.value)}
-      />
+      <View style={styles.numberInputBox}>
+        <NumberInput
+          currency="EUR"
+          locale="de-DE"
+          value={value}
+          placeholder="0,00 €"
+          style={styles.numberInputField}
+          onValueChange={(r) => setValue(r.value)}
+        />
+      </View>
       <View style={styles.buttonRow}>
         <Pressable style={styles.button} onPress={() => setValue(0)}>
           <Text style={styles.buttonText}>Reset to 0</Text>
@@ -252,13 +256,15 @@ function ImperativeRefDemo() {
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Imperative ref (focus / blur / clear)</Text>
-      <NumberInput
-        ref={ref}
-        currency="USD"
-        locale="en-US"
-        placeholder="$0.00"
-        style={[styles.input, { height: 44 }]}
-      />
+      <View style={styles.numberInputBox}>
+        <NumberInput
+          ref={ref}
+          currency="USD"
+          locale="en-US"
+          placeholder="$0.00"
+          style={styles.numberInputField}
+        />
+      </View>
       <View style={styles.buttonRow}>
         <Pressable style={styles.button} onPress={() => ref.current?.focus()}>
           <Text style={styles.buttonText}>Focus</Text>
@@ -318,6 +324,24 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     marginBottom: 8,
+  },
+  // NumberInput is a custom native view, so RN's `padding` style doesn't
+  // propagate to its inner text rendering the way it does for `<TextInput />`.
+  // Wrap NumberInput in this View to get the same bordered-box look — the
+  // wrapper provides the horizontal padding via Yoga layout, and the inner
+  // text field fills the resulting smaller content area.
+  numberInputBox: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    height: 44,
+    justifyContent: 'center',
+  },
+  numberInputField: {
+    fontSize: 16,
+    height: 22,
   },
   info: {
     fontSize: 13,
