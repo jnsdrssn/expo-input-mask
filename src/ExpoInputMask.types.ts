@@ -48,11 +48,12 @@ export interface MaskedTextInputProps extends TextInputProps {
   }) => void;
 }
 
+// MARK: - Number formatting (no currency)
+
 export interface ApplyNumberFormatOptions {
   text: string;
   caretPosition: number;
   locale?: string;
-  currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
@@ -66,25 +67,12 @@ export interface NumberFormatResult {
   value: string;
   complete: boolean;
   caretPosition: number;
-  /**
-   * Value expressed as an integer in the smallest unit (cents for USD/EUR,
-   * ¥ for JPY, fils for BHD). Computed natively by string concatenation —
-   * exact, no floating-point. `null` when `value` is empty.
-   */
-  minorUnits: number | null;
 }
 
 export interface NumberValueResult {
   value: number | null;
   formattedText: string;
   rawValue: string;
-  /**
-   * Value expressed as an integer in the smallest unit (cents for USD/EUR,
-   * ¥ for JPY, fils for BHD). Computed natively by string concatenation —
-   * exact, no floating-point. `null` when the field is empty. Useful for
-   * payment APIs (Stripe, Adyen, ...) that take amounts in minor units.
-   */
-  minorUnits: number | null;
   complete: boolean;
 }
 
@@ -92,19 +80,12 @@ export interface NumberInputProps extends Omit<
   TextInputProps,
   'value' | 'onChangeText' | 'onChange' | 'keyboardType'
 > {
-  // Number formatting
+  // Locale + formatting
   locale?: string;
-  currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
-  /** Max fractional digits. Defaults to the currency's default if `currency` is set, otherwise 2. */
+  /** Max fractional digits. Defaults to 2. */
   decimalPlaces?: number;
-  /**
-   * `'decimal'` (default): user types digits and a decimal separator; display matches input.
-   * `'cents'`: append-only digit mode — the last `decimalPlaces` digits are always the fraction
-   * (typing `123` with `decimalPlaces: 2` → `1.23`). The decimal separator is ignored on input.
-   */
-  mode?: 'decimal' | 'cents';
 
   // Constraints
   min?: number;
@@ -119,7 +100,7 @@ export interface NumberInputProps extends Omit<
 
   /**
    * Fires with the **display-formatted** text on every change (e.g. `"1,234.56"`,
-   * `"1.234,56 €"`). Matches the `<TextInput />` `onChangeText` convention.
+   * `"1.234,56"`). Matches the `<TextInput />` `onChangeText` convention.
    * For the dot-canonical raw string or the parsed `number`, use `onValueChange`.
    */
   onChangeText?: (formattedText: string) => void;
@@ -134,4 +115,44 @@ export interface NumberInputRef {
   focus: () => void;
   blur: () => void;
   clear: () => void;
+}
+
+// MARK: - Currency formatting
+
+export interface ApplyCurrencyFormatOptions extends ApplyNumberFormatOptions {
+  /** ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`, `'BHD'`. Drives prefix/suffix and default fraction digits. */
+  currency: string;
+}
+
+export interface CurrencyFormatResult extends NumberFormatResult {
+  /**
+   * Value expressed as an integer in the smallest currency unit (cents for
+   * USD/EUR, ¥ for JPY, fils for BHD). Computed natively by string
+   * concatenation — exact, no floating-point. `null` when `value` is empty.
+   */
+  minorUnits: number | null;
+}
+
+export interface CurrencyValueResult extends NumberValueResult {
+  /**
+   * Value expressed as an integer in the smallest currency unit (cents for
+   * USD/EUR, ¥ for JPY, fils for BHD). Computed natively by string
+   * concatenation — exact, no floating-point. `null` when the field is empty.
+   * Useful for payment APIs (Stripe, Adyen, ...) that take amounts in minor units.
+   */
+  minorUnits: number | null;
+}
+
+export interface CurrencyInputProps extends Omit<NumberInputProps, 'onValueChange'> {
+  /** ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`, `'BHD'`. */
+  currency: string;
+  /**
+   * `'decimal'` (default): user types digits and a decimal separator; display matches input.
+   * `'cents'`: append-only digit mode — the last `decimalPlaces` digits are always the fraction
+   * (typing `123` with `decimalPlaces: 2` → `1.23`). The decimal separator is ignored on input.
+   */
+  mode?: 'decimal' | 'cents';
+
+  /** Fires on every change with parsed number, formatted text, dot-canonical raw string, integer minor units, and min/max completeness. */
+  onValueChange?: (result: CurrencyValueResult) => void;
 }

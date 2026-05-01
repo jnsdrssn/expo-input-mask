@@ -1,9 +1,11 @@
 import { requireNativeModule } from 'expo-modules-core';
 
 import type {
+  ApplyCurrencyFormatOptions,
   ApplyMaskOptions,
-  MaskResult,
   ApplyNumberFormatOptions,
+  CurrencyFormatResult,
+  MaskResult,
   NumberFormatResult,
 } from './ExpoInputMask.types';
 
@@ -33,6 +35,25 @@ export function applyMask(options: ApplyMaskOptions): MaskResult {
 export function applyNumberFormat(
   options: ApplyNumberFormatOptions
 ): NumberFormatResult & { exceeded: boolean } {
+  const caretPosition = Math.max(
+    0,
+    Math.min(options.caretPosition, options.text.length)
+  );
+
+  // Native always emits `minorUnits` (used by the currency surface). Strip it
+  // here so the non-currency `NumberFormatResult` shape is honest.
+  const result = ExpoInputMaskNative.applyNumberFormat({
+    ...options,
+    caretPosition,
+  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { minorUnits: _minorUnits, ...withoutMinor } = result;
+  return withoutMinor;
+}
+
+export function applyCurrencyFormat(
+  options: ApplyCurrencyFormatOptions
+): CurrencyFormatResult & { exceeded: boolean } {
   const caretPosition = Math.max(
     0,
     Math.min(options.caretPosition, options.text.length)

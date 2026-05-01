@@ -1,12 +1,21 @@
-export { applyMask, applyNumberFormat } from './ExpoInputMaskModule';
+export {
+  applyCurrencyFormat,
+  applyMask,
+  applyNumberFormat,
+} from './ExpoInputMaskModule';
+export { CurrencyInput } from './CurrencyInput';
 export { MaskedTextInput } from './MaskedTextInput';
 export { NumberInput } from './NumberInput';
 export type {
+  ApplyCurrencyFormatOptions,
   ApplyMaskOptions,
-  MaskResult,
-  MaskedTextInputProps,
-  CustomNotation,
   ApplyNumberFormatOptions,
+  CurrencyFormatResult,
+  CurrencyInputProps,
+  CurrencyValueResult,
+  CustomNotation,
+  MaskedTextInputProps,
+  MaskResult,
   NumberFormatResult,
   NumberInputProps,
   NumberInputRef,

@@ -3,11 +3,16 @@ import React, { useCallback, useImperativeHandle, useRef } from 'react';
 import type { ViewProps } from 'react-native';
 
 import type {
+  CurrencyValueResult,
   NumberInputProps,
   NumberInputRef,
   NumberValueResult,
 } from './ExpoInputMask.types';
 
+// The native view accepts the full prop surface (currency / mode / minorUnits
+// in the event), but `<NumberInput />` only forwards the non-currency subset
+// and strips `minorUnits` from the JS event before calling `onValueChange`.
+// Use `<CurrencyInput />` for currency formatting.
 interface NativeNumberInputProps extends ViewProps {
   placeholder?: string;
   editable?: boolean;
@@ -15,15 +20,13 @@ interface NativeNumberInputProps extends ViewProps {
   keyboardType?: string;
   returnKeyType?: string;
   locale?: string;
-  currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
-  mode?: 'decimal' | 'cents';
   min?: number;
   max?: number;
   value?: number | null;
-  onValueChange?: (event: { nativeEvent: NumberValueResult }) => void;
+  onValueChange?: (event: { nativeEvent: CurrencyValueResult }) => void;
   onFocusEvent?: () => void;
   onBlurEvent?: () => void;
 }
@@ -85,9 +88,12 @@ export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
     callbacksRef.current = { onChangeText, onValueChange };
 
     const handleValueChange = useCallback(
-      (event: { nativeEvent: NumberValueResult }) => {
-        callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
-        callbacksRef.current.onValueChange?.(event.nativeEvent);
+      (event: { nativeEvent: CurrencyValueResult }) => {
+        // Native always emits `minorUnits`; strip it for the non-currency surface.
+        const { minorUnits: _minorUnits, ...numberValue } = event.nativeEvent;
+        const result: NumberValueResult = numberValue;
+        callbacksRef.current.onChangeText?.(result.formattedText);
+        callbacksRef.current.onValueChange?.(result);
       },
       []
     );

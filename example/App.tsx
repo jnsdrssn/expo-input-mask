@@ -7,8 +7,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { MaskedTextInput, NumberInput } from 'expo-input-mask';
-import type { NumberInputRef, NumberValueResult } from 'expo-input-mask';
+import { CurrencyInput, MaskedTextInput, NumberInput } from 'expo-input-mask';
+import type {
+  CurrencyValueResult,
+  NumberInputRef,
+  NumberValueResult,
+} from 'expo-input-mask';
 
 function DemoInput({
   label,
@@ -61,22 +65,18 @@ function DemoInput({
 function NumberDemoInput({
   label,
   locale,
-  currency,
   groupingSeparator,
   decimalSeparator,
   decimalPlaces,
-  mode,
   min,
   max,
   placeholder,
 }: {
   label: string;
   locale?: string;
-  currency?: string;
   groupingSeparator?: string;
   decimalSeparator?: string;
   decimalPlaces?: number;
-  mode?: 'decimal' | 'cents';
   min?: number;
   max?: number;
   placeholder: string;
@@ -91,10 +91,68 @@ function NumberDemoInput({
   return (
     <View style={styles.card}>
       <Text style={styles.label}>{label}</Text>
-      {currency && <Text style={styles.maskLabel}>Currency: {currency}</Text>}
       {locale && <Text style={styles.maskLabel}>Locale: {locale}</Text>}
       <View style={styles.numberInputBox}>
         <NumberInput
+          locale={locale}
+          groupingSeparator={groupingSeparator}
+          decimalSeparator={decimalSeparator}
+          decimalPlaces={decimalPlaces}
+          min={min}
+          max={max}
+          placeholder={placeholder}
+          style={styles.numberInputField}
+          onValueChange={setResult}
+        />
+      </View>
+      <Text style={styles.info}>Formatted: {result.formattedText}</Text>
+      <Text style={styles.info}>Raw: {result.rawValue}</Text>
+      <Text style={styles.info}>Value: {result.value !== null ? result.value : 'null'}</Text>
+      <Text style={[styles.info, result.complete ? styles.complete : styles.incomplete]}>
+        {result.complete ? 'Complete' : 'Incomplete'}
+      </Text>
+    </View>
+  );
+}
+
+function CurrencyDemoInput({
+  label,
+  locale,
+  currency,
+  groupingSeparator,
+  decimalSeparator,
+  decimalPlaces,
+  mode,
+  min,
+  max,
+  placeholder,
+}: {
+  label: string;
+  locale?: string;
+  currency: string;
+  groupingSeparator?: string;
+  decimalSeparator?: string;
+  decimalPlaces?: number;
+  mode?: 'decimal' | 'cents';
+  min?: number;
+  max?: number;
+  placeholder: string;
+}) {
+  const [result, setResult] = useState<CurrencyValueResult>({
+    formattedText: '',
+    rawValue: '',
+    value: null,
+    minorUnits: null,
+    complete: false,
+  });
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.maskLabel}>Currency: {currency}</Text>
+      {locale && <Text style={styles.maskLabel}>Locale: {locale}</Text>}
+      <View style={styles.numberInputBox}>
+        <CurrencyInput
           locale={locale}
           currency={currency}
           groupingSeparator={groupingSeparator}
@@ -111,6 +169,9 @@ function NumberDemoInput({
       <Text style={styles.info}>Formatted: {result.formattedText}</Text>
       <Text style={styles.info}>Raw: {result.rawValue}</Text>
       <Text style={styles.info}>Value: {result.value !== null ? result.value : 'null'}</Text>
+      <Text style={styles.info}>
+        minorUnits: {result.minorUnits !== null ? result.minorUnits : 'null'}
+      </Text>
       <Text style={[styles.info, result.complete ? styles.complete : styles.incomplete]}>
         {result.complete ? 'Complete' : 'Incomplete'}
       </Text>
@@ -168,28 +229,6 @@ export default function App() {
         />
 
         <NumberDemoInput
-          label="USD Currency"
-          currency="USD"
-          locale="en-US"
-          placeholder="$0.00"
-        />
-
-        <NumberDemoInput
-          label="USD Cents Mode"
-          currency="USD"
-          locale="en-US"
-          mode="cents"
-          placeholder="$0.00"
-        />
-
-        <NumberDemoInput
-          label="EUR Currency (German)"
-          currency="EUR"
-          locale="de-DE"
-          placeholder="0,00 €"
-        />
-
-        <NumberDemoInput
           label="With Min/Max (0 - 10,000)"
           min={0}
           max={10000}
@@ -202,7 +241,31 @@ export default function App() {
           placeholder="0.0000"
         />
 
-        <ControlledNumberDemo />
+        <Text style={[styles.title, { marginTop: 20 }]}>CurrencyInput Demos</Text>
+
+        <CurrencyDemoInput
+          label="USD Currency"
+          currency="USD"
+          locale="en-US"
+          placeholder="$0.00"
+        />
+
+        <CurrencyDemoInput
+          label="USD Cents Mode"
+          currency="USD"
+          locale="en-US"
+          mode="cents"
+          placeholder="$0.00"
+        />
+
+        <CurrencyDemoInput
+          label="EUR Currency (German)"
+          currency="EUR"
+          locale="de-DE"
+          placeholder="0,00 €"
+        />
+
+        <ControlledCurrencyDemo />
 
         <ImperativeRefDemo />
       </ScrollView>
@@ -215,21 +278,28 @@ export default function App() {
  * via `value`. Exercises the first-mount-with-initial-value path and the
  * focused-typing no-op behavior of `setExternalValue`.
  */
-function ControlledNumberDemo() {
+function ControlledCurrencyDemo() {
   const [value, setValue] = useState<number | null>(1234.56);
+  const [minorUnits, setMinorUnits] = useState<number | null>(123456);
 
   return (
     <View style={styles.card}>
       <Text style={styles.label}>Controlled (EUR / de-DE, initial 1234.56)</Text>
       <Text style={styles.maskLabel}>value = {value === null ? 'null' : value}</Text>
+      <Text style={styles.maskLabel}>
+        minorUnits = {minorUnits === null ? 'null' : minorUnits}
+      </Text>
       <View style={styles.numberInputBox}>
-        <NumberInput
+        <CurrencyInput
           currency="EUR"
           locale="de-DE"
           value={value}
           placeholder="0,00 €"
           style={styles.numberInputField}
-          onValueChange={(r) => setValue(r.value)}
+          onValueChange={(r) => {
+            setValue(r.value);
+            setMinorUnits(r.minorUnits);
+          }}
         />
       </View>
       <View style={styles.buttonRow}>
@@ -248,7 +318,8 @@ function ControlledNumberDemo() {
 }
 
 /**
- * Imperative-ref demo: focus / blur / clear via `NumberInputRef`.
+ * Imperative-ref demo: focus / blur / clear via `NumberInputRef`. Both
+ * `<NumberInput />` and `<CurrencyInput />` share the ref shape.
  */
 function ImperativeRefDemo() {
   const ref = useRef<NumberInputRef>(null);
@@ -257,7 +328,7 @@ function ImperativeRefDemo() {
     <View style={styles.card}>
       <Text style={styles.label}>Imperative ref (focus / blur / clear)</Text>
       <View style={styles.numberInputBox}>
-        <NumberInput
+        <CurrencyInput
           ref={ref}
           currency="USD"
           locale="en-US"
@@ -325,10 +396,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
-  // NumberInput is a custom native view, so RN's `padding` style doesn't
-  // propagate to its inner text rendering the way it does for `<TextInput />`.
-  // Wrap NumberInput in this View to get the same bordered-box look — the
-  // wrapper provides the horizontal padding via Yoga layout, and the inner
+  // NumberInput / CurrencyInput are custom native views, so RN's `padding`
+  // style doesn't propagate to their inner text rendering the way it does for
+  // `<TextInput />`. Wrap them in this View to get the same bordered-box look —
+  // the wrapper provides the horizontal padding via Yoga layout, and the inner
   // text field fills the resulting smaller content area.
   numberInputBox: {
     borderWidth: 1,
