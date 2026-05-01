@@ -40,13 +40,22 @@ export function applyNumberFormat(
     Math.min(options.caretPosition, options.text.length)
   );
 
+  // Defensive: strip `currency` and `mode` from runtime options too, not just
+  // from the type. A consumer who casts past TS to pass `currency: 'USD'`
+  // through `applyNumberFormat` should still get plain decimal output, not
+  // silently currency-formatted text. Use `applyCurrencyFormat` for currency.
+  const sanitized = options as ApplyNumberFormatOptions & {
+    currency?: unknown;
+    mode?: unknown;
+  };
+  const { currency: _c, mode: _m, ...nonCurrencyOptions } = sanitized;
+
   // Native always emits `minorUnits` (used by the currency surface). Strip it
-  // here so the non-currency `NumberFormatResult` shape is honest.
+  // here so the non-currency `NumberFormatResult` shape is honest at runtime.
   const result = ExpoInputMaskNative.applyNumberFormat({
-    ...options,
+    ...nonCurrencyOptions,
     caretPosition,
   });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { minorUnits: _minorUnits, ...withoutMinor } = result;
   return withoutMinor;
 }

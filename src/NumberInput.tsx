@@ -3,16 +3,23 @@ import React, { useCallback, useImperativeHandle, useRef } from 'react';
 import type { ViewProps } from 'react-native';
 
 import type {
-  CurrencyValueResult,
   NumberInputProps,
   NumberInputRef,
   NumberValueResult,
 } from './ExpoInputMask.types';
 
-// The native view accepts the full prop surface (currency / mode / minorUnits
-// in the event), but `<NumberInput />` only forwards the non-currency subset
-// and strips `minorUnits` from the JS event before calling `onValueChange`.
-// Use `<CurrencyInput />` for currency formatting.
+// The shape the native view actually emits — same as `NumberValueResult` plus
+// the currency-only `minorUnits` field that this wrapper strips before calling
+// the consumer's `onValueChange`. Kept private so `NumberInput.tsx` doesn't
+// import any currency types and the file's purpose stays self-evident; the
+// public currency surface is `<CurrencyInput />`.
+interface RawNativeNumberEvent extends NumberValueResult {
+  minorUnits: number | null;
+}
+
+// The native view accepts the full prop surface (currency / mode), but
+// `<NumberInput />` only forwards the non-currency subset. Use
+// `<CurrencyInput />` for currency formatting.
 interface NativeNumberInputProps extends ViewProps {
   placeholder?: string;
   editable?: boolean;
@@ -26,7 +33,7 @@ interface NativeNumberInputProps extends ViewProps {
   min?: number;
   max?: number;
   value?: number | null;
-  onValueChange?: (event: { nativeEvent: CurrencyValueResult }) => void;
+  onValueChange?: (event: { nativeEvent: RawNativeNumberEvent }) => void;
   onFocusEvent?: () => void;
   onBlurEvent?: () => void;
 }
@@ -88,10 +95,10 @@ export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
     callbacksRef.current = { onChangeText, onValueChange };
 
     const handleValueChange = useCallback(
-      (event: { nativeEvent: CurrencyValueResult }) => {
-        // Native always emits `minorUnits`; strip it for the non-currency surface.
-        const { minorUnits: _minorUnits, ...numberValue } = event.nativeEvent;
-        const result: NumberValueResult = numberValue;
+      (event: { nativeEvent: RawNativeNumberEvent }) => {
+        // Native always emits `minorUnits`; strip it for the non-currency surface
+        // so the runtime payload matches `NumberValueResult` exactly — no leakage.
+        const { minorUnits: _minorUnits, ...result } = event.nativeEvent;
         callbacksRef.current.onChangeText?.(result.formattedText);
         callbacksRef.current.onValueChange?.(result);
       },

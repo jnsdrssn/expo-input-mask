@@ -178,15 +178,16 @@ const ref = useRef<NumberInputRef>(null);
 
 ### `<CurrencyInput />`
 
-Locale + currency formatting, with `min`/`max`, optional cents-mode entry, and integer minor-units output for payment APIs. Inherits everything `<NumberInput />` accepts plus `currency` (required) and `mode`.
+Locale + currency formatting, with `min`/`max`, optional cents-mode entry, and integer minor-units output for payment APIs. Inherits all of `<NumberInput />`'s formatting and constraint props (`locale`, `groupingSeparator`, `decimalSeparator`, `min`, `max`, `value`, `onChangeText`, `keyboardType`); the currency-specific surface is below.
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `currency` | `string` | **required** | ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`, `'BHD'`. Drives prefix/suffix and default fraction digits |
 | `mode` | `'decimal' \| 'cents'` | `'decimal'` | `'decimal'`: free-form digit + separator entry. `'cents'`: append-only — typing `123` with `decimalPlaces: 2` renders as `1.23` |
 | `decimalPlaces` | `number` | currency default | Override the currency's default fraction digits |
-| `locale`, `groupingSeparator`, `decimalSeparator`, `min`, `max`, `value`, `onChangeText`, `keyboardType` | | | Same as `<NumberInput />` |
 | `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, minorUnits, complete }`. **The extra `minorUnits` is the only payload difference from `<NumberInput />`.** |
+
+Imperative ref: same `NumberInputRef` shape as `<NumberInput />` (`focus()` / `blur()` / `clear()`).
 
 **Notes** (in addition to all `<NumberInput />` notes)
 

@@ -8,7 +8,7 @@ Splits `<NumberInput />` into two focused components. `<NumberInput />` is now s
 
 - **`<NumberInput />` no longer accepts `currency` or `mode`.** Use `<CurrencyInput />` for currency formatting.
 - **`NumberValueResult` no longer includes `minorUnits`.** It only ships on `CurrencyValueResult` (the `<CurrencyInput />` payload).
-- **`applyNumberFormat()` no longer accepts `currency`** and its return type (`NumberFormatResult`) no longer includes `minorUnits`. Use `applyCurrencyFormat()` for currency formatting.
+- **`applyNumberFormat()` no longer accepts `currency`** and its return type (`NumberFormatResult`) no longer includes `minorUnits`. Use `applyCurrencyFormat()` for currency formatting. (Note: passing `currency` at runtime via `as any` is also defensively stripped — `applyNumberFormat` will produce plain decimal output even if you bypass TypeScript.)
 - **Migration:** if you used `<NumberInput currency="USD" />`, change the import to `<CurrencyInput currency="USD" />` and the result type from `NumberValueResult` to `CurrencyValueResult`. Same for `applyNumberFormat({ currency: 'USD', ... })` → `applyCurrencyFormat({ currency: 'USD', ... })`.
 
 ### Added

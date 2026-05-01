@@ -48,7 +48,12 @@ const NativeCurrencyInput =
  * `'decimal'` (default) for free-form entry, `'cents'` for append-only digit
  * entry where the last `decimalPlaces` digits are always the fraction.
  *
- * Integer digits are capped at 15 to stay within JavaScript number precision.
+ * Integer digits are capped at 15 to stay within JavaScript number precision
+ * (2^53 is exact integer up to 16 digits but not for all values). Digits typed
+ * or pasted past the cap are silently dropped. Note that this cap applies
+ * before the `max` check, so a sufficiently large paste with leading zeros can
+ * produce a post-cap value below `max` even if the original input would have
+ * exceeded it.
  *
  * The `onValueChange` payload includes `minorUnits` — the value as an integer
  * in the smallest currency unit (cents for USD/EUR, ¥ for JPY, fils for BHD).
@@ -60,47 +65,48 @@ const NativeCurrencyInputWithRef = NativeCurrencyInput as React.ComponentType<
   NativeCurrencyInputProps & { ref?: React.Ref<NativeCurrencyInputHandle> }
 >;
 
-export const CurrencyInput = React.forwardRef<NumberInputRef, CurrencyInputProps>(
-  ({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
-    const nativeRef = useRef<NativeCurrencyInputHandle | null>(null);
+export const CurrencyInput = React.forwardRef<
+  NumberInputRef,
+  CurrencyInputProps
+>(({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
+  const nativeRef = useRef<NativeCurrencyInputHandle | null>(null);
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        focus: () => {
-          nativeRef.current?.focus?.();
-        },
-        blur: () => {
-          nativeRef.current?.blur?.();
-        },
-        clear: () => {
-          nativeRef.current?.clear?.();
-        },
-      }),
-      []
-    );
-
-    const callbacksRef = useRef({ onChangeText, onValueChange });
-    callbacksRef.current = { onChangeText, onValueChange };
-
-    const handleValueChange = useCallback(
-      (event: { nativeEvent: CurrencyValueResult }) => {
-        callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
-        callbacksRef.current.onValueChange?.(event.nativeEvent);
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        nativeRef.current?.focus?.();
       },
-      []
-    );
+      blur: () => {
+        nativeRef.current?.blur?.();
+      },
+      clear: () => {
+        nativeRef.current?.clear?.();
+      },
+    }),
+    []
+  );
 
-    return (
-      <NativeCurrencyInputWithRef
-        ref={nativeRef}
-        {...rest}
-        onValueChange={handleValueChange}
-        onFocusEvent={onFocus as (() => void) | undefined}
-        onBlurEvent={onBlur as (() => void) | undefined}
-      />
-    );
-  }
-);
+  const callbacksRef = useRef({ onChangeText, onValueChange });
+  callbacksRef.current = { onChangeText, onValueChange };
+
+  const handleValueChange = useCallback(
+    (event: { nativeEvent: CurrencyValueResult }) => {
+      callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
+      callbacksRef.current.onValueChange?.(event.nativeEvent);
+    },
+    []
+  );
+
+  return (
+    <NativeCurrencyInputWithRef
+      ref={nativeRef}
+      {...rest}
+      onValueChange={handleValueChange}
+      onFocusEvent={onFocus as (() => void) | undefined}
+      onBlurEvent={onBlur as (() => void) | undefined}
+    />
+  );
+});
 
 CurrencyInput.displayName = 'CurrencyInput';

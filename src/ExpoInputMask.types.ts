@@ -143,7 +143,10 @@ export interface CurrencyValueResult extends NumberValueResult {
   minorUnits: number | null;
 }
 
-export interface CurrencyInputProps extends Omit<NumberInputProps, 'onValueChange'> {
+export interface CurrencyInputProps extends Omit<
+  NumberInputProps,
+  'onValueChange'
+> {
   /** ISO-4217 code, e.g. `'USD'`, `'EUR'`, `'JPY'`, `'BHD'`. */
   currency: string;
   /**
