@@ -67,6 +67,12 @@ export interface NumberFormatResult {
   value: string;
   complete: boolean;
   caretPosition: number;
+  /**
+   * `true` when the input was rejected for exceeding `max`. The other fields
+   * are zero-valued (`formattedText: ''`, `value: ''`, `caretPosition: 0`,
+   * `complete: false`) when this is set.
+   */
+  exceeded: boolean;
 }
 
 export interface NumberValueResult {

@@ -16,6 +16,11 @@ Splits `<NumberInput />` into two focused components. `<NumberInput />` is now s
 - **`<CurrencyInput />`** component. Required `currency: string`. Supports `mode: 'decimal' | 'cents'`. Emits `CurrencyValueResult` (extends `NumberValueResult` with `minorUnits: number | null`). Same imperative ref shape (`focus()` / `blur()` / `clear()`) as `<NumberInput />`.
 - **`applyCurrencyFormat(options)`** — required `currency`, returns `CurrencyFormatResult` (with `minorUnits`).
 - New types exported: `CurrencyInputProps`, `CurrencyValueResult`, `CurrencyFormatResult`, `ApplyCurrencyFormatOptions`.
+- `NumberFormatResult.exceeded` is now declared on the interface itself (previously only present as a `& { exceeded: boolean }` intersection on the `applyNumberFormat()` return type). Same runtime shape — but `exceeded` is now visible to callers typed as `NumberFormatResult` directly. `CurrencyFormatResult` inherits it via `extends`.
+
+### Internal
+
+- 10 new JS-layer Jest tests covering the wrapper contracts: `applyNumberFormat()` strips `minorUnits` + `currency` + `mode`, `applyCurrencyFormat()` forwards them; `<NumberInput />`'s `onValueChange` receives a `NumberValueResult` (no `minorUnits`) even when the native event includes one, `<CurrencyInput />`'s `onValueChange` receives the full `CurrencyValueResult`. Native algorithm tests unchanged (55/55 each platform).
 
 ## 0.2.2
 

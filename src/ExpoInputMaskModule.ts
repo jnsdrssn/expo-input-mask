@@ -34,7 +34,7 @@ export function applyMask(options: ApplyMaskOptions): MaskResult {
 
 export function applyNumberFormat(
   options: ApplyNumberFormatOptions
-): NumberFormatResult & { exceeded: boolean } {
+): NumberFormatResult {
   const caretPosition = Math.max(
     0,
     Math.min(options.caretPosition, options.text.length)
@@ -62,7 +62,7 @@ export function applyNumberFormat(
 
 export function applyCurrencyFormat(
   options: ApplyCurrencyFormatOptions
-): CurrencyFormatResult & { exceeded: boolean } {
+): CurrencyFormatResult {
   const caretPosition = Math.max(
     0,
     Math.min(options.caretPosition, options.text.length)

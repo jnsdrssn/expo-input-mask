@@ -208,8 +208,10 @@ const a = applyNumberFormat({
   locale: 'de-DE',
 });
 // a.formattedText === '1.234,56'
-// a.value === '1234.56'
+// a.value === '1234.56'         (dot-canonical raw string)
+// a.caretPosition === 8         (post-format index in formattedText)
 // a.complete === true
+// a.exceeded === false          (true when `text` > max — other fields are zero-valued)
 
 // Currency:
 const b = applyCurrencyFormat({
@@ -220,9 +222,12 @@ const b = applyCurrencyFormat({
 });
 // b.formattedText === '1.234,56 €'
 // b.value === '1234.56'
-// b.minorUnits === 123456
+// b.minorUnits === 123456       (exact integer in smallest unit; safe for Stripe etc.)
 // b.complete === true
+// b.exceeded === false
 ```
+
+When the input exceeds `max`, both functions return `{ formattedText: '', value: '', caretPosition: 0, complete: false, exceeded: true }` (plus `minorUnits: null` for `applyCurrencyFormat`).
 
 Full options:
 
