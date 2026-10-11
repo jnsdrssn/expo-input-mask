@@ -82,6 +82,14 @@ export interface NumberValueResult {
   complete: boolean;
 }
 
+/**
+ * Text styling is drawn by the native field, as `<TextInput />` takes it:
+ * `style`'s `color`, `fontFamily`, `fontSize`, `fontWeight`, `fontVariant`,
+ * `letterSpacing` and `textAlign`, and the `placeholderTextColor`,
+ * `selectionColor`, `cursorColor`, `allowFontScaling` and `accessibilityLabel`
+ * props. `fontFamily` resolves as `<Text />` resolves it, fonts loaded with
+ * expo-font included. Any of them left out keeps the platform default.
+ */
 export interface NumberInputProps extends Omit<
   TextInputProps,
   'value' | 'onChangeText' | 'onChange' | 'keyboardType'
@@ -149,6 +157,7 @@ export interface CurrencyValueResult extends NumberValueResult {
   minorUnits: number | null;
 }
 
+/** Text styling is drawn natively, as on `NumberInputProps`. */
 export interface CurrencyInputProps extends Omit<
   NumberInputProps,
   'onValueChange'

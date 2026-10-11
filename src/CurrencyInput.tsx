@@ -7,14 +7,15 @@ import type {
   CurrencyValueResult,
   NumberInputRef,
 } from './ExpoInputMask.types';
+import { nativeTextProps, type NativeTextProps } from './nativeTextProps';
 
 // Same native primitive as `<NumberInput />`. The currency-specific surface
 // (required `currency`, optional `mode`) is enforced at the JS type layer;
 // the event payload includes `minorUnits` (stripped by `<NumberInput />`).
-interface NativeCurrencyInputProps extends ViewProps {
+interface NativeCurrencyInputProps
+  extends Omit<ViewProps, 'style'>, NativeTextProps {
   placeholder?: string;
   editable?: boolean;
-  textAlign?: string;
   keyboardType?: string;
   returnKeyType?: string;
   locale?: string;
@@ -68,45 +69,74 @@ const NativeCurrencyInputWithRef = NativeCurrencyInput as React.ComponentType<
 export const CurrencyInput = React.forwardRef<
   NumberInputRef,
   CurrencyInputProps
->(({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
-  const nativeRef = useRef<NativeCurrencyInputHandle | null>(null);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      focus: () => {
-        nativeRef.current?.focus?.();
-      },
-      blur: () => {
-        nativeRef.current?.blur?.();
-      },
-      clear: () => {
-        nativeRef.current?.clear?.();
-      },
-    }),
-    []
-  );
-
-  const callbacksRef = useRef({ onChangeText, onValueChange });
-  callbacksRef.current = { onChangeText, onValueChange };
-
-  const handleValueChange = useCallback(
-    (event: { nativeEvent: CurrencyValueResult }) => {
-      callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
-      callbacksRef.current.onValueChange?.(event.nativeEvent);
+>(
+  (
+    {
+      onChangeText,
+      onValueChange,
+      onFocus,
+      onBlur,
+      style,
+      textAlign,
+      allowFontScaling,
+      placeholderTextColor,
+      selectionColor,
+      cursorColor,
+      accessibilityLabel,
+      'aria-label': ariaLabel,
+      ...rest
     },
-    []
-  );
+    ref
+  ) => {
+    const nativeRef = useRef<NativeCurrencyInputHandle | null>(null);
 
-  return (
-    <NativeCurrencyInputWithRef
-      ref={nativeRef}
-      {...rest}
-      onValueChange={handleValueChange}
-      onFocusEvent={onFocus as (() => void) | undefined}
-      onBlurEvent={onBlur as (() => void) | undefined}
-    />
-  );
-});
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: () => {
+          nativeRef.current?.focus?.();
+        },
+        blur: () => {
+          nativeRef.current?.blur?.();
+        },
+        clear: () => {
+          nativeRef.current?.clear?.();
+        },
+      }),
+      []
+    );
+
+    const callbacksRef = useRef({ onChangeText, onValueChange });
+    callbacksRef.current = { onChangeText, onValueChange };
+
+    const handleValueChange = useCallback(
+      (event: { nativeEvent: CurrencyValueResult }) => {
+        callbacksRef.current.onChangeText?.(event.nativeEvent.formattedText);
+        callbacksRef.current.onValueChange?.(event.nativeEvent);
+      },
+      []
+    );
+
+    return (
+      <NativeCurrencyInputWithRef
+        ref={nativeRef}
+        {...rest}
+        {...nativeTextProps({
+          style,
+          textAlign,
+          allowFontScaling,
+          placeholderTextColor,
+          selectionColor,
+          cursorColor,
+          accessibilityLabel,
+          'aria-label': ariaLabel,
+        })}
+        onValueChange={handleValueChange}
+        onFocusEvent={onFocus as (() => void) | undefined}
+        onBlurEvent={onBlur as (() => void) | undefined}
+      />
+    );
+  }
+);
 
 CurrencyInput.displayName = 'CurrencyInput';

@@ -55,6 +55,17 @@ jest.mock('expo-modules-core', () => {
   };
 });
 
+// `nativeTextProps` (used by both wrappers) imports `processColor` and
+// `StyleSheet` from react-native, which can't load under node. A minimal
+// stand-in: colors are tagged so a test can see they were processed.
+jest.mock('react-native', () => ({
+  processColor: (value: unknown) => `processed(${String(value)})`,
+  StyleSheet: {
+    flatten: (style: unknown) =>
+      Array.isArray(style) ? Object.assign({}, ...style) : style,
+  },
+}));
+
 const getLastViewProps = (
   ExpoModulesCore as unknown as {
     __getLastViewProps: () => Record<string, unknown> | null;
@@ -324,5 +335,44 @@ describe('<CurrencyInput /> JS wrapper', () => {
     expect(viewProps).toEqual(
       expect.objectContaining({ currency: 'EUR', locale: 'de-DE' })
     );
+  });
+});
+
+describe('text styling (both wrappers)', () => {
+  const textProps = {
+    style: { padding: 4, fontSize: 18, color: 'black', fontFamily: 'Inter' },
+    placeholderTextColor: 'gray',
+    cursorColor: 'blue',
+    accessibilityLabel: 'Amount',
+  };
+
+  const expectForwarded = (viewProps: Record<string, unknown> | null) => {
+    expect(viewProps).not.toBeNull();
+    expect(viewProps!.style).toEqual({ padding: 4 });
+    expect(viewProps).toEqual(
+      expect.objectContaining({
+        fontSize: 18,
+        fontFamily: 'Inter',
+        color: 'processed(black)',
+        placeholderTextColor: 'processed(gray)',
+        cursorColor: 'processed(blue)',
+        fieldAccessibilityLabel: 'Amount',
+      })
+    );
+    expect(viewProps).not.toHaveProperty('accessibilityLabel');
+  };
+
+  it('<NumberInput /> forwards text styling as native props', () => {
+    act(() => {
+      create(<NumberInput {...textProps} />);
+    });
+    expectForwarded(getLastViewProps());
+  });
+
+  it('<CurrencyInput /> forwards text styling as native props', () => {
+    act(() => {
+      create(<CurrencyInput currency="USD" {...textProps} />);
+    });
+    expectForwarded(getLastViewProps());
   });
 });
