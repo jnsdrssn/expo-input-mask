@@ -8,6 +8,7 @@ import type {
   NumberInputRef,
 } from './ExpoInputMask.types';
 import { nativeTextProps, type NativeTextProps } from './nativeTextProps';
+import { settle } from './settle';
 
 // Same native primitive as `<NumberInput />`. The currency-specific surface
 // (required `currency`, optional `mode`) is enforced at the JS type layer;
@@ -33,9 +34,9 @@ interface NativeCurrencyInputProps
 }
 
 interface NativeCurrencyInputHandle {
-  focus?: () => void;
-  blur?: () => void;
-  clear?: () => void;
+  focus?: () => Promise<void> | void;
+  blur?: () => Promise<void> | void;
+  clear?: () => Promise<void> | void;
 }
 
 const NativeCurrencyInput =
@@ -94,13 +95,13 @@ export const CurrencyInput = React.forwardRef<
       ref,
       () => ({
         focus: () => {
-          nativeRef.current?.focus?.();
+          settle(nativeRef.current?.focus?.());
         },
         blur: () => {
-          nativeRef.current?.blur?.();
+          settle(nativeRef.current?.blur?.());
         },
         clear: () => {
-          nativeRef.current?.clear?.();
+          settle(nativeRef.current?.clear?.());
         },
       }),
       []

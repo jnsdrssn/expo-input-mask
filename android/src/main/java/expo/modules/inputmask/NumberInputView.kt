@@ -11,6 +11,7 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.text.method.DigitsKeyListener
 import android.util.TypedValue
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import com.facebook.react.common.ReactConstants
 import com.facebook.react.views.text.ReactTypefaceUtils
@@ -230,8 +231,28 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
 
   // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)
 
+  // `autoFocus`: focus once, when the view first reaches a window. A
+  // `focus()` call from JS at mount can arrive before the view is attached
+  // (Fabric resolves the view by tag, and it isn't registered yet), so the
+  // native side does it at the moment it can.
+  var autoFocus = false
+  private var autoFocused = false
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    if (autoFocus && !autoFocused) {
+      autoFocused = true
+      editText.post { focusField() }
+    }
+  }
+
   fun focusField() {
-    editText.requestFocus()
+    if (editText.requestFocus()) {
+      // requestFocus() alone leaves the keyboard down; focus from code should
+      // behave as a tap on the field does.
+      val keyboard = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+      keyboard?.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+    }
   }
 
   fun blurField() {

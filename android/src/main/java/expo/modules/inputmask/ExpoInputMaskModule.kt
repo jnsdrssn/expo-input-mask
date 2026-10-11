@@ -168,6 +168,10 @@ class ExpoInputMaskModule : Module() {
         view.editText.isEnabled = value ?: true
       }
 
+      Prop("autoFocus") { view: NumberInputView, value: Boolean? ->
+        view.autoFocus = value ?: false
+      }
+
       Prop("textAlign") { view: NumberInputView, value: String? ->
         view.editText.gravity = when (value) {
           "center" -> Gravity.CENTER
