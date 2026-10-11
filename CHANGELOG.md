@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Fixed
+
+- **`autoFocus` works.** It was forwarded to the native view but never handled, and focusing from JS at mount (`useEffect(() => ref.current?.focus())`) could run before the view was registered, rejecting with "Unable to find the … NumberInputView view with tag …" as an unhandled promise. `autoFocus` is now a native prop on both platforms: the field focuses once, when it first reaches a window.
+- **`focus()`, `blur()` and `clear()` never leave an unhandled rejection.** A call that arrives while the view isn't registered (before mount, after unmount) is a no-op.
+- **Android: `focus()` shows the keyboard**, as a tap on the field does. `requestFocus()` alone left it down.
+
 ## 0.4.0
 
 ### Added

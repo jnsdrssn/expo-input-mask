@@ -273,6 +273,20 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
 
   // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)
 
+  // `autoFocus`: focus once, when the view first reaches a window. A
+  // `focus()` call from JS at mount can arrive before the view exists
+  // natively, so the native side does it at the moment it can.
+  var autoFocus = false
+  private var autoFocused = false
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    if window != nil && autoFocus && !autoFocused {
+      autoFocused = true
+      DispatchQueue.main.async { [weak self] in self?.focusField() }
+    }
+  }
+
   func focusField() {
     textField.becomeFirstResponder()
   }

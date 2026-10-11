@@ -8,6 +8,7 @@ import type {
   NumberValueResult,
 } from './ExpoInputMask.types';
 import { nativeTextProps, type NativeTextProps } from './nativeTextProps';
+import { settle } from './settle';
 
 // The shape the native view actually emits — same as `NumberValueResult` plus
 // the currency-only `minorUnits` field that this wrapper strips before calling
@@ -44,9 +45,9 @@ interface NativeNumberInputProps
 // types its returned component without ref support. This is the minimal contract
 // the wrapper relies on.
 interface NativeNumberInputHandle {
-  focus?: () => void;
-  blur?: () => void;
-  clear?: () => void;
+  focus?: () => Promise<void> | void;
+  blur?: () => Promise<void> | void;
+  clear?: () => Promise<void> | void;
 }
 
 const NativeNumberInput =
@@ -92,13 +93,13 @@ export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
       ref,
       () => ({
         focus: () => {
-          nativeRef.current?.focus?.();
+          settle(nativeRef.current?.focus?.());
         },
         blur: () => {
-          nativeRef.current?.blur?.();
+          settle(nativeRef.current?.blur?.());
         },
         clear: () => {
-          nativeRef.current?.clear?.();
+          settle(nativeRef.current?.clear?.());
         },
       }),
       []

@@ -183,6 +183,10 @@ public class ExpoInputMaskModule: Module {
         view.isEditable = value ?? true
       }
 
+      Prop("autoFocus") { (view: NumberInputView, value: Bool?) in
+        view.autoFocus = value ?? false
+      }
+
       Prop("textAlign") { (view: NumberInputView, value: String?) in
         switch value {
         case "center":
