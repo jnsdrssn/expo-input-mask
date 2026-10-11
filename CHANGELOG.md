@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1
+
+### Fixed
+
+- **Android: text clipped in a field sized to its line.** The `EditText` kept the theme's padding after its background was removed, plus its font padding, so a field as tall as its text (Yoga's default for a `<TextInput />`-like view) drew the figure pushed down and clipped to a sliver. Its padding is now zero and `includeFontPadding` off, matching `UITextField`: the text fills the view, and padding is the consumer's to add through `style`.
+
 ## 0.3.0
 
 Splits `<NumberInput />` into two focused components. `<NumberInput />` is now strictly a non-currency numeric input; `<CurrencyInput />` is the new currency-formatted variant with required `currency` and minor-units payload. The native primitive is unchanged — both JS components route to the same view; the split is type-level.
