@@ -1,11 +1,19 @@
 package expo.modules.inputmask
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.BlendMode
+import android.graphics.BlendModeColorFilter
+import android.graphics.Typeface
+import android.os.Build
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.text.method.DigitsKeyListener
+import android.util.TypedValue
 import android.widget.EditText
+import com.facebook.react.common.ReactConstants
+import com.facebook.react.views.text.ReactTypefaceUtils
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
@@ -41,8 +49,42 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     includeFontPadding = false
   }
 
+  // EditText's own style, restored when the text-style props are removed.
+  private val defaultTypeface: Typeface? = editText.typeface
+  private val defaultTextSize: Float = editText.textSize
+  private val defaultTextColors: ColorStateList = editText.textColors
+  private val defaultHintTextColors: ColorStateList? = editText.hintTextColors
+  private val defaultHighlightColor: Int = editText.highlightColor
+
   var minValue: Double? = null
   var maxValue: Double? = null
+
+  // The `<TextInput />` text-style props, forwarded by the JS wrapper from
+  // `style` (font, color, letter spacing, font variant) and from the top level
+  // (placeholder and caret colors, font scaling). Each marks the style dirty
+  // when it changes; `applyTextStyle()` (from `OnViewDidUpdateProps`) rebuilds
+  // once per prop batch. Until one is set, the EditText keeps its own style.
+  var propFontFamily: String? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propFontSize: Double? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propFontWeight: String? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propFontVariant: List<String>? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propLetterSpacing: Double? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propAllowFontScaling: Boolean? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propColor: Int? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propPlaceholderTextColor: Int? = null
+    set(value) { if (field != value) { field = value; styleDirty = true } }
+  var propSelectionColor: Int? = null
+    set(value) { field = value; updateCaretColor() }
+  var propCursorColor: Int? = null
+    set(value) { field = value; updateCaretColor() }
+  private var styleDirty: Boolean = false
 
   // Each formatting-config prop sets `formatterDirty` when it actually changes.
   // `OnViewDidUpdateProps` then skips the formatter rebuild on prop batches
@@ -111,6 +153,79 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
         onBlurEvent(mapOf<String, Any>())
       }
     }
+  }
+
+  // MARK: - Text Style
+
+  fun applyTextStyle() {
+    if (!styleDirty) return
+    styleDirty = false
+
+    val fontSize = propFontSize
+    if (fontSize != null) {
+      val unit = if (propAllowFontScaling != false) TypedValue.COMPLEX_UNIT_SP else TypedValue.COMPLEX_UNIT_DIP
+      editText.setTextSize(unit, fontSize.toFloat())
+    } else {
+      editText.setTextSize(TypedValue.COMPLEX_UNIT_PX, defaultTextSize)
+    }
+
+    val weight = ReactTypefaceUtils.parseFontWeight(propFontWeight)
+    editText.typeface = if (propFontFamily == null && weight == ReactConstants.UNSET) {
+      defaultTypeface
+    } else {
+      ReactTypefaceUtils.applyStyles(defaultTypeface, ReactConstants.UNSET, weight, propFontFamily, context.assets)
+    }
+
+    editText.fontFeatureSettings = fontFeatures(propFontVariant)
+
+    // Android takes letter spacing in ems; React Native's is in points.
+    val spacing = propLetterSpacing
+    editText.letterSpacing = if (spacing != null) {
+      val sizeInPoints = fontSize ?: (editText.textSize / resources.displayMetrics.density).toDouble()
+      if (sizeInPoints > 0) (spacing / sizeInPoints).toFloat() else 0f
+    } else {
+      0f
+    }
+
+    val color = propColor
+    if (color != null) editText.setTextColor(color) else editText.setTextColor(defaultTextColors)
+    val hintColor = propPlaceholderTextColor
+    if (hintColor != null) {
+      editText.setHintTextColor(hintColor)
+    } else if (defaultHintTextColors != null) {
+      editText.setHintTextColor(defaultHintTextColors)
+    }
+  }
+
+  // `selectionColor` tints the selection, and the caret unless `cursorColor`
+  // is set. The caret is tinted on Android 10 (API 29) and later.
+  private fun updateCaretColor() {
+    val selection = propSelectionColor
+    editText.highlightColor = selection ?: defaultHighlightColor
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val cursor = propCursorColor ?: selection
+      val drawable = editText.textCursorDrawable ?: return
+      if (cursor != null) {
+        drawable.colorFilter = BlendModeColorFilter(cursor, BlendMode.SRC_IN)
+      } else {
+        drawable.clearColorFilter()
+      }
+      editText.textCursorDrawable = drawable
+    }
+  }
+
+  private fun fontFeatures(variants: List<String>?): String? {
+    val features = variants.orEmpty().mapNotNull { variant ->
+      when (variant) {
+        "tabular-nums" -> "'tnum'"
+        "proportional-nums" -> "'pnum'"
+        "lining-nums" -> "'lnum'"
+        "oldstyle-nums" -> "'onum'"
+        "small-caps" -> "'smcp'"
+        else -> null
+      }
+    }
+    return if (features.isEmpty()) null else features.joinToString(", ")
   }
 
   // MARK: - Imperative Methods (exposed as AsyncFunctions from the module)

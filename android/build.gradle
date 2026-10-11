@@ -45,6 +45,9 @@ repositories {
 
 dependencies {
   implementation project(':expo-modules-core')
+  // ReactFontManager / ReactTypefaceUtils resolve `fontFamily` the way
+  // `<Text />` does, including fonts loaded with expo-font.
+  implementation 'com.facebook.react:react-android'
   implementation 'com.redmadrobot:input-mask-android:7.2.4'
 
   testImplementation 'junit:junit:4.13.2'

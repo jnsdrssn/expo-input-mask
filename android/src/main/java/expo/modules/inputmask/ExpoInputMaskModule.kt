@@ -234,7 +234,56 @@ class ExpoInputMaskModule : Module() {
         view.setExternalValue(value)
       }
 
+      // Text style. The JS wrapper lifts these out of `style` (and processes
+      // the colors), as `<TextInput />` takes them.
+      Prop("fontFamily") { view: NumberInputView, value: String? ->
+        view.propFontFamily = value
+      }
+
+      Prop("fontSize") { view: NumberInputView, value: Double? ->
+        view.propFontSize = value
+      }
+
+      Prop("fontWeight") { view: NumberInputView, value: String? ->
+        view.propFontWeight = value
+      }
+
+      Prop("fontVariant") { view: NumberInputView, value: List<String>? ->
+        view.propFontVariant = value
+      }
+
+      Prop("letterSpacing") { view: NumberInputView, value: Double? ->
+        view.propLetterSpacing = value
+      }
+
+      Prop("allowFontScaling") { view: NumberInputView, value: Boolean? ->
+        view.propAllowFontScaling = value
+      }
+
+      Prop("color") { view: NumberInputView, value: Int? ->
+        view.propColor = value
+      }
+
+      Prop("placeholderTextColor") { view: NumberInputView, value: Int? ->
+        view.propPlaceholderTextColor = value
+      }
+
+      Prop("selectionColor") { view: NumberInputView, value: Int? ->
+        view.propSelectionColor = value
+      }
+
+      Prop("cursorColor") { view: NumberInputView, value: Int? ->
+        view.propCursorColor = value
+      }
+
+      // Sent under its own name so only the EditText carries the label, not
+      // the container view as well.
+      Prop("fieldAccessibilityLabel") { view: NumberInputView, value: String? ->
+        view.editText.contentDescription = value
+      }
+
       OnViewDidUpdateProps { view: NumberInputView ->
+        view.applyTextStyle()
         view.updateFormatter()
       }
     }

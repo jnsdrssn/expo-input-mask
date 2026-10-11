@@ -254,7 +254,56 @@ public class ExpoInputMaskModule: Module {
         view.propMode = value
       }
 
+      // Text style. The JS wrapper lifts these out of `style` (and processes
+      // the colors), as `<TextInput />` takes them.
+      Prop("fontFamily") { (view: NumberInputView, value: String?) in
+        view.propFontFamily = value
+      }
+
+      Prop("fontSize") { (view: NumberInputView, value: Double?) in
+        view.propFontSize = value
+      }
+
+      Prop("fontWeight") { (view: NumberInputView, value: String?) in
+        view.propFontWeight = value
+      }
+
+      Prop("fontVariant") { (view: NumberInputView, value: [String]?) in
+        view.propFontVariant = value
+      }
+
+      Prop("letterSpacing") { (view: NumberInputView, value: Double?) in
+        view.propLetterSpacing = value
+      }
+
+      Prop("allowFontScaling") { (view: NumberInputView, value: Bool?) in
+        view.propAllowFontScaling = value
+      }
+
+      Prop("color") { (view: NumberInputView, value: UIColor?) in
+        view.propColor = value
+      }
+
+      Prop("placeholderTextColor") { (view: NumberInputView, value: UIColor?) in
+        view.propPlaceholderTextColor = value
+      }
+
+      Prop("selectionColor") { (view: NumberInputView, value: UIColor?) in
+        view.propSelectionColor = value
+      }
+
+      Prop("cursorColor") { (view: NumberInputView, value: UIColor?) in
+        view.propCursorColor = value
+      }
+
+      // `accessibilityLabel` itself would also land on the container view; the
+      // JS wrapper sends it under this name so only the text field carries it.
+      Prop("fieldAccessibilityLabel") { (view: NumberInputView, value: String?) in
+        view.fieldAccessibilityLabel = value
+      }
+
       OnViewDidUpdateProps { (view: NumberInputView) in
+        view.applyTextStyle()
         view.updateFormatter()
       }
     }

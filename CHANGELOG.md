@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- **Native text styling on `<NumberInput />` and `<CurrencyInput />`.** The native field now draws its text as a `<TextInput />` would style it: `style`'s `color`, `fontFamily`, `fontSize`, `fontWeight`, `fontVariant`, `letterSpacing` and `textAlign`, plus the `placeholderTextColor`, `selectionColor`, `cursorColor`, `allowFontScaling` and `accessibilityLabel` props, on iOS and Android. The JS wrappers lift the text keys out of `style` (which keeps the view's layout and box) and send them as native props, with colors processed. `fontFamily` resolves as `<Text />` resolves it, fonts loaded with `expo-font` included. `accessibilityLabel` (or `aria-label`) lands on the text field alone, so the container isn't read as a second element. Anything left out keeps the platform default.
+
+No breaking changes: a field given none of these renders as before.
+
+### Internal
+
+- Android now depends on `com.facebook.react:react-android` (for `ReactTypefaceUtils`, which resolves `fontFamily` and `fontWeight` as `<Text />` does).
+- Jest tests for `nativeTextProps()` and for both wrappers forwarding text styling to the native view.
+
 ## 0.3.1
 
 ### Fixed

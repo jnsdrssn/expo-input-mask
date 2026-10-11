@@ -159,6 +159,8 @@ Plain locale-aware decimal input. Use `<CurrencyInput />` instead if you need cu
 | `onValueChange` | `(result) => void` | — | Fires with `{ value, formattedText, rawValue, complete }` on every change |
 | `keyboardType` | `'decimal-pad' \| 'numeric' \| 'number-pad'` | `'decimal-pad'` | Narrowed for numeric input |
 
+**Text styling.** The native field draws its own text, styled as a `<TextInput />` is: `style`'s `color`, `fontFamily`, `fontSize`, `fontWeight`, `fontVariant`, `letterSpacing` and `textAlign`, plus the `placeholderTextColor`, `selectionColor`, `cursorColor`, `allowFontScaling` and `accessibilityLabel` props. `fontFamily` resolves as `<Text />` resolves it, fonts loaded with `expo-font` included. Anything left out keeps the platform default. `<CurrencyInput />` takes the same.
+
 Imperative ref:
 
 ```tsx

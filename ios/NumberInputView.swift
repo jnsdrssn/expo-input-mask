@@ -1,3 +1,4 @@
+import CoreText
 import ExpoModulesCore
 import UIKit
 
@@ -40,6 +41,30 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   // Initial `true` so the first `updateFormatter()` after mount always rebuilds.
   private var formatterDirty: Bool = true
 
+  // MARK: - Text Style Props
+
+  // The `<TextInput />` text-style props, forwarded by the JS wrapper from
+  // `style` (font, color, letter spacing, font variant) and from the top level
+  // (placeholder and caret colors, font scaling). Each marks the style dirty
+  // when it changes; `applyTextStyle()` (from `OnViewDidUpdateProps`) rebuilds
+  // once per prop batch. Until one is set, the field keeps UITextField's own
+  // font and colors.
+  var propFontFamily: String? { didSet { if oldValue != propFontFamily { styleDirty = true } } }
+  var propFontSize: Double? { didSet { if oldValue != propFontSize { styleDirty = true } } }
+  var propFontWeight: String? { didSet { if oldValue != propFontWeight { styleDirty = true } } }
+  var propFontVariant: [String]? { didSet { if oldValue != propFontVariant { styleDirty = true } } }
+  var propLetterSpacing: Double? { didSet { if oldValue != propLetterSpacing { styleDirty = true } } }
+  var propAllowFontScaling: Bool? { didSet { if oldValue != propAllowFontScaling { styleDirty = true } } }
+  var propColor: UIColor? { didSet { if oldValue != propColor { styleDirty = true } } }
+  var propPlaceholderTextColor: UIColor? { didSet { if oldValue != propPlaceholderTextColor { styleDirty = true } } }
+  var propSelectionColor: UIColor? { didSet { updateCaretColor() } }
+  var propCursorColor: UIColor? { didSet { updateCaretColor() } }
+  private var styleDirty: Bool = false
+  private var placeholderText: String?
+  // UITextField's own font and color, restored when the style props are removed.
+  private var defaultFont: UIFont?
+  private var defaultTextColor: UIColor?
+
   // MARK: - Derived state from props
 
   // Used to look up the active decimal separator for input normalization, and
@@ -71,13 +96,25 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
     textField.addTarget(self, action: #selector(handleEditingDidBegin), for: .editingDidBegin)
     textField.addTarget(self, action: #selector(handleEditingDidEnd), for: .editingDidEnd)
     addSubview(textField)
+    defaultFont = textField.font
+    defaultTextColor = textField.textColor
   }
 
   // MARK: - Forwarded Props
 
   var placeholder: String? {
-    get { textField.placeholder }
-    set { textField.placeholder = newValue }
+    get { placeholderText }
+    set {
+      placeholderText = newValue
+      updatePlaceholder()
+    }
+  }
+
+  // Set on the text field itself, so VoiceOver focuses the field and reads
+  // this label instead of the placeholder.
+  var fieldAccessibilityLabel: String? {
+    get { textField.accessibilityLabel }
+    set { textField.accessibilityLabel = newValue }
   }
 
   var textAlignment: NSTextAlignment {
@@ -98,6 +135,130 @@ class NumberInputView: ExpoView, UITextFieldDelegate {
   var isEditable: Bool {
     get { textField.isUserInteractionEnabled }
     set { textField.isUserInteractionEnabled = newValue }
+  }
+
+  // MARK: - Text Style
+
+  func applyTextStyle() {
+    if !styleDirty { return }
+    styleDirty = false
+
+    let font = resolveFont()
+    textField.font = font
+    textField.adjustsFontForContentSizeCategory = hasFontProps && (propAllowFontScaling ?? true)
+    textField.textColor = propColor ?? defaultTextColor
+
+    var attributes = textField.defaultTextAttributes
+    if let spacing = propLetterSpacing {
+      attributes[.kern] = CGFloat(spacing)
+    } else {
+      attributes.removeValue(forKey: .kern)
+    }
+    textField.defaultTextAttributes = attributes
+
+    updatePlaceholder()
+  }
+
+  private var hasFontProps: Bool {
+    return propFontFamily != nil
+      || propFontSize != nil
+      || propFontWeight != nil
+      || !(propFontVariant ?? []).isEmpty
+  }
+
+  private func updatePlaceholder() {
+    guard let color = propPlaceholderTextColor, let text = placeholderText else {
+      textField.placeholder = placeholderText
+      return
+    }
+    var attributes: [NSAttributedString.Key: Any] = [.foregroundColor: color]
+    if let font = textField.font {
+      attributes[.font] = font
+    }
+    textField.attributedPlaceholder = NSAttributedString(string: text, attributes: attributes)
+  }
+
+  // iOS draws the caret and selection in the tint color; `cursorColor` wins
+  // over `selectionColor` when both are set. `nil` restores the inherited tint.
+  private func updateCaretColor() {
+    textField.tintColor = propCursorColor ?? propSelectionColor
+  }
+
+  private func resolveFont() -> UIFont? {
+    if !hasFontProps { return defaultFont }
+
+    let size = CGFloat(propFontSize ?? Double(defaultFont?.pointSize ?? 17))
+    let weight = NumberInputView.fontWeight(propFontWeight) ?? .regular
+
+    var font = propFontFamily.flatMap {
+      NumberInputView.customFont(family: $0, size: size, weight: weight)
+    } ?? UIFont.systemFont(ofSize: size, weight: weight)
+
+    let features = NumberInputView.fontFeatures(propFontVariant ?? [])
+    if !features.isEmpty {
+      let descriptor = font.fontDescriptor.addingAttributes([.featureSettings: features])
+      font = UIFont(descriptor: descriptor, size: size)
+    }
+
+    if propAllowFontScaling ?? true {
+      font = UIFontMetrics.default.scaledFont(for: font)
+    }
+    return font
+  }
+
+  /// A font by PostScript name, else by family (including expo-font aliases,
+  /// which `UIFont.fontNames(forFamilyName:)` resolves), picking the face
+  /// whose weight is nearest. `nil` when nothing by that name is registered.
+  private static func customFont(family: String, size: CGFloat, weight: UIFont.Weight) -> UIFont? {
+    if let font = UIFont(name: family, size: size) {
+      return font
+    }
+    let fonts = UIFont.fontNames(forFamilyName: family).compactMap { UIFont(name: $0, size: size) }
+    if fonts.count <= 1 {
+      return fonts.first
+    }
+    return fonts.min { a, b in
+      abs(faceWeight(a) - weight.rawValue) < abs(faceWeight(b) - weight.rawValue)
+    }
+  }
+
+  private static func faceWeight(_ font: UIFont) -> CGFloat {
+    let traits = font.fontDescriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]
+    return (traits?[.weight] as? CGFloat) ?? UIFont.Weight.regular.rawValue
+  }
+
+  private static func fontWeight(_ value: String?) -> UIFont.Weight? {
+    switch value {
+    case "100": return .ultraLight
+    case "200": return .thin
+    case "300": return .light
+    case "400", "normal": return .regular
+    case "500": return .medium
+    case "600": return .semibold
+    case "700", "bold": return .bold
+    case "800": return .heavy
+    case "900": return .black
+    default: return nil
+    }
+  }
+
+  private static func fontFeatures(_ variants: [String]) -> [[UIFontDescriptor.FeatureKey: Int]] {
+    return variants.compactMap { variant -> [UIFontDescriptor.FeatureKey: Int]? in
+      switch variant {
+      case "tabular-nums":
+        return [.type: kNumberSpacingType, .selector: kMonospacedNumbersSelector]
+      case "proportional-nums":
+        return [.type: kNumberSpacingType, .selector: kProportionalNumbersSelector]
+      case "lining-nums":
+        return [.type: kNumberCaseType, .selector: kUpperCaseNumbersSelector]
+      case "oldstyle-nums":
+        return [.type: kNumberCaseType, .selector: kLowerCaseNumbersSelector]
+      case "small-caps":
+        return [.type: kLowerCaseType, .selector: kLowerCaseSmallCapsSelector]
+      default:
+        return nil
+      }
+    }
   }
 
   // MARK: - Focus / Blur

@@ -7,6 +7,7 @@ import type {
   NumberInputRef,
   NumberValueResult,
 } from './ExpoInputMask.types';
+import { nativeTextProps, type NativeTextProps } from './nativeTextProps';
 
 // The shape the native view actually emits — same as `NumberValueResult` plus
 // the currency-only `minorUnits` field that this wrapper strips before calling
@@ -20,10 +21,10 @@ interface RawNativeNumberEvent extends NumberValueResult {
 // The native view accepts the full prop surface (currency / mode), but
 // `<NumberInput />` only forwards the non-currency subset. Use
 // `<CurrencyInput />` for currency formatting.
-interface NativeNumberInputProps extends ViewProps {
+interface NativeNumberInputProps
+  extends Omit<ViewProps, 'style'>, NativeTextProps {
   placeholder?: string;
   editable?: boolean;
-  textAlign?: string;
   keyboardType?: string;
   returnKeyType?: string;
   locale?: string;
@@ -67,7 +68,24 @@ const NativeNumberInputWithRef = NativeNumberInput as React.ComponentType<
 >;
 
 export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
-  ({ onChangeText, onValueChange, onFocus, onBlur, ...rest }, ref) => {
+  (
+    {
+      onChangeText,
+      onValueChange,
+      onFocus,
+      onBlur,
+      style,
+      textAlign,
+      allowFontScaling,
+      placeholderTextColor,
+      selectionColor,
+      cursorColor,
+      accessibilityLabel,
+      'aria-label': ariaLabel,
+      ...rest
+    },
+    ref
+  ) => {
     const nativeRef = useRef<NativeNumberInputHandle | null>(null);
 
     useImperativeHandle(
@@ -109,6 +127,16 @@ export const NumberInput = React.forwardRef<NumberInputRef, NumberInputProps>(
       <NativeNumberInputWithRef
         ref={nativeRef}
         {...rest}
+        {...nativeTextProps({
+          style,
+          textAlign,
+          allowFontScaling,
+          placeholderTextColor,
+          selectionColor,
+          cursorColor,
+          accessibilityLabel,
+          'aria-label': ariaLabel,
+        })}
         onValueChange={handleValueChange}
         onFocusEvent={onFocus as (() => void) | undefined}
         onBlurEvent={onBlur as (() => void) | undefined}
