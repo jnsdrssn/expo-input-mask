@@ -31,6 +31,14 @@ class NumberInputView(context: Context, appContext: AppContext) : ExpoView(conte
     // alone would reject whichever one isn't the device locale's decimal separator.
     keyListener = DigitsKeyListener.getInstance("0123456789.,")
     background = null
+    // EditText keeps the theme's padding after its background is removed,
+    // and adds font padding above and below the line. A field sized to its
+    // line (as a `<TextInput />` laid out by Yoga is) then draws its text
+    // pushed down and clipped to a sliver. UITextField has neither, so this
+    // matches iOS: the text fills the view, and `style` padding is the
+    // consumer's to add.
+    setPadding(0, 0, 0, 0)
+    includeFontPadding = false
   }
 
   var minValue: Double? = null
